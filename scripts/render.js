@@ -427,7 +427,8 @@ function renderRevealPhase(current) {
     `;
   }
 
-  if (!state.showRole) {
+  // In solo mode, skip the turn prompt - go straight to role reveal
+  if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:8px">📲 <strong>${current.name}</strong>'s turn</div>
@@ -435,6 +436,11 @@ function renderRevealPhase(current) {
         <button class="btn btn-primary btn-lg" onclick="showCurrentRole()">Reveal My Role</button>
       </div>
     `;
+  }
+
+  // In solo mode, auto-show the role
+  if (!state.showRole && isSoloMode()) {
+    state.showRole = true;
   }
 
   const teammates = current.role === 'mafia'
@@ -612,7 +618,7 @@ function renderNightPhase(current, alivePlayers) {
                 <div class="target-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
                 <div class="target-details">
                   <span class="target-location">📍 ${plan?.locationName || 'Unknown'}</span>
-                  ${plan?.actionName ? `<span class="target-action">→ ${plan.actionName}</span>` : ''}
+                  ${plan?.action?.name ? `<span class="target-action">→ ${plan.action.name}</span>` : ''}
                 </div>
               </div>
               <div class="target-kill-btn">🎯 Kill</div>
