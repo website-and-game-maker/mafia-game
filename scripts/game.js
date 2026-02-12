@@ -506,7 +506,12 @@ function botMakeDecisions(phase) {
     aliveBots.forEach(bot => {
       const location = state.selectedStory.locations[Math.floor(Math.random() * state.selectedStory.locations.length)];
       const action = location.actions[Math.floor(Math.random() * location.actions.length)];
-      state.nightPlans[bot.id] = { location: location.id, locationName: location.name, action };
+      // For lockable locations, bots randomly choose lock or listen (mafia don't get door options)
+      let doorOption = null;
+      if (location.canLock && bot.role !== 'mafia') {
+        doorOption = Math.random() > 0.5 ? 'lock' : 'listen';
+      }
+      state.nightPlans[bot.id] = { location: location.id, locationName: location.name, action, doorOption };
     });
   }
 
@@ -570,11 +575,20 @@ function processNight() {
     let intel = null;
     const roll = Math.random();
 
-    if (action.intel === 0) {
+    // Calculate effective intel based on door option
+    // Lock door: -20% intel, Leave open to listen: +15% intel
+    let effectiveIntel = action.intel || 0;
+    if (plan.doorOption === 'lock') {
+      effectiveIntel = Math.max(0, effectiveIntel - 0.2);
+    } else if (plan.doorOption === 'listen') {
+      effectiveIntel = Math.min(1, effectiveIntel + 0.15);
+    }
+
+    if (effectiveIntel === 0) {
       intel = { heard: 'nothing (secured)', saw: null };
-    } else if (sameLocation && roll < action.intel) {
+    } else if (sameLocation && roll < effectiveIntel) {
       const killers = alivePlayers.filter(x => x.role === 'mafia');
-      if (roll < action.intel * 0.7) {
+      if (roll < effectiveIntel * 0.7) {
         const seenKiller = killers[Math.floor(Math.random() * killers.length)];
         intel = { heard: 'violent struggle', saw: `${seenKiller?.name} fleeing` };
       } else {
@@ -582,12 +596,15 @@ function processNight() {
       }
     } else if (sameLocation) {
       intel = { heard: 'disturbing sounds', saw: null };
+    } else if (plan.doorOption === 'listen' && roll < effectiveIntel * 0.5) {
+      // Bonus: listening at door can pick up distant sounds even from other locations
+      intel = { heard: 'distant footsteps in the hallway', saw: null };
     }
 
     const othersAtLocation = alivePlayers.filter(x =>
       x.id !== player.id && state.nightPlans[x.id]?.location === plan.location
     );
-    if (othersAtLocation.length > 0 && action.intel > 0) {
+    if (othersAtLocation.length > 0 && effectiveIntel > 0) {
       intel = intel || {};
       intel.nearby = `Also at ${plan.locationName}: ${othersAtLocation.map(x => x.name).join(', ')}`;
     }
@@ -879,6 +896,7 @@ window.nextReveal = () => {
 window.selectLocation = (id) => {
   state.selectedLocation = id;
   state.selectedAction = null;
+  state.selectedDoorOption = null;
   render();
 };
 
@@ -888,6 +906,12 @@ window.selectAction = (id) => {
   const location = state.selectedStory.locations.find(l => l.id === state.selectedLocation);
   const actions = isMafia ? state.selectedStory.mafiaActions : (location?.actions || []);
   state.selectedAction = actions.find(a => a.id === id);
+  state.selectedDoorOption = null;
+  render();
+};
+
+window.selectDoorOption = (option) => {
+  state.selectedDoorOption = option;
   render();
 };
 
@@ -915,10 +939,12 @@ window.confirmDayPlan = () => {
   state.nightPlans[current.id] = {
     location: state.selectedLocation,
     locationName: location?.name,
-    action: state.selectedAction
+    action: state.selectedAction,
+    doorOption: location?.canLock ? state.selectedDoorOption : null
   };
   state.selectedLocation = null;
   state.selectedAction = null;
+  state.selectedDoorOption = null;
 
   const next = findNextAlive(state.currentPlayerIndex);
   if (next !== -1) {

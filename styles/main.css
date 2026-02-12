@@ -304,6 +304,16 @@ h2 {
 .action-stats { display: flex; gap: 12px; font-size: 0.8rem; }
 .action-desc { font-size: 0.85rem; color: var(--text-secondary); }
 
+/* Door Options */
+.door-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.door-option { padding: 12px; background: rgba(50, 50, 70, 0.6); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s; }
+.door-option:hover { background: rgba(60, 60, 80, 0.8); }
+.door-option.selected { background: rgba(99, 102, 241, 0.3); border-color: #6366f1; }
+.door-option-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.door-option-name { font-weight: 600; }
+.door-option-stats { display: flex; gap: 12px; font-size: 0.8rem; }
+.door-option-desc { font-size: 0.85rem; color: var(--text-secondary); }
+
 /* Risk/Intel color coding */
 .risk-low, .intel-low { color: #16a34a; }
 .risk-medium, .intel-medium { color: #ca8a04; }
