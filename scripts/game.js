@@ -16,8 +16,8 @@ const ROLES = {
 const ROLE_PRESETS = [
   { id: 'classic', name: 'Classic', description: 'Balanced gameplay', mafia: 20, doctor: 10, detective: 10, color: '#22c55e' },
   { id: 'brutal', name: 'Brutal', description: 'High mafia ratio', mafia: 30, doctor: 8, detective: 8, color: '#f97316' },
-  { id: 'chaos', name: 'Chaos', description: 'Nearly half mafia', mafia: 40, doctor: 10, detective: 10, color: '#ef4444' },
-  { id: 'detective', name: 'Mystery', description: 'Extra investigators', mafia: 20, doctor: 10, detective: 20, color: '#a855f7' }
+  { id: 'chaos', name: 'Chaos', description: 'Few villagers, many powers', mafia: 30, doctor: 20, detective: 20, color: '#ef4444' },
+  { id: 'detective', name: 'Mystery', description: 'No doctor, pure deduction', mafia: 20, doctor: 0, detective: 30, color: '#a855f7' }
 ];
 
 const STORY_PRESETS = [
@@ -175,6 +175,7 @@ const state = {
   announcement: null,
   selectedLocation: null,
   selectedAction: null,
+  selectedDoorOption: null,
   selectedTarget: null,
   selectedSave: null,
   selectedVote: null,
@@ -207,7 +208,8 @@ function getCurrentPlayer() {
 function calculateRolesFromPreset(preset, count) {
   if (count < 3) return { mafia: 0, doctor: 0, detective: 0, villager: 0 };
   const mafia = Math.max(1, Math.round(count * preset.mafia / 100));
-  const doctor = Math.max(1, Math.round(count * preset.doctor / 100));
+  // Doctor can be 0 if preset explicitly sets it to 0, otherwise at least 1
+  const doctor = preset.doctor === 0 ? 0 : Math.max(1, Math.round(count * preset.doctor / 100));
   const detective = count >= 5 ? Math.max(0, Math.round(count * preset.detective / 100)) : 0;
   return {
     mafia,
