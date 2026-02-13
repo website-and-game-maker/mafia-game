@@ -59,6 +59,7 @@ UI note:
   - kill target (based on visibility rules)
   - attack method (ordered low disturbance -> high disturbance)
 - Receives tactical mafia notes (movement/snooper visibility), not town intel cards.
+- Mafia UI decisions center on tactical visibility and disturbance, not town exposure scoring.
 
 ### Detective
 - Always alert (never “dozes off”).
@@ -101,7 +102,7 @@ UI note:
 ## 5.3 Night
 - Human actors take turns in sequence.
 - Mafia: choose target + attack method.
-- Non-mafia (villager/detective/doctor): choose a night stance.
+- Non-mafia (villager/detective/doctor): take a night stance/action turn (not skipped).
 - Bots simulate equivalent decisions with configured delay pacing.
 
 ## 5.4 Morning Doctor
@@ -116,7 +117,9 @@ UI note:
 ## 5.6 Discussion
 - Discussion occurs before voting in non-solo flows.
 - Single-device multiplayer: timed discussion gate, then private vote pass flow.
+- Single-device and solo do not use a live device chat feed.
 - Multi-device multiplayer: shared chat discussion, then host advances to voting.
+- In multi-device games, chat remains visible during play/discussion so players can follow device-to-device conversation before voting.
 
 ## 5.7 Vote
 - Every living voter submits one vote.
@@ -166,12 +169,14 @@ Methods are displayed low disturbance -> high disturbance.
 - No join links/codes shown in this mode.
 
 ### Multiplayer Multi-Device
-- Host and join flows in lobby.
+- Multiplayer entry provides two choices: `Host` and `Join Game`.
 - Requires at least 2 total players.
 - Lobby shows:
   - room code
   - join portal URL
   - direct hotlink URL
+- Player-facing lobby text avoids raw relay/socket URLs.
+- Join links containing `?join=<CODE>` should enter the join flow immediately.
 - Players are grouped by device.
 - Bots are global (not per device) and host-managed.
 - Host can reorder device order and per-device player order via drag handles.
@@ -182,13 +187,14 @@ Methods are displayed low disturbance -> high disturbance.
 ## 9. Narration System
 
 ### Human Narrator Mode
-- Narrator cue appears at the start of each phase and must be acknowledged before player turns continue.
+- Narrator gets the first phase turn each phase and must acknowledge before player turns continue.
 - Cue is phase-level and non-spoiler (no secret role leakage).
 - Single-device: narrator reads cue aloud.
 - Multi-device: narrator posts cue in chat before actions proceed.
 
 ### Auto Narrator Mode
 - Uses story preset backstory and phase text packs (`scripts/narration_data.js`).
+- Uses role-aware tone sets without exposing private role secrets in public narration.
 - Tone options remain configurable in settings.
 
 ---
@@ -213,5 +219,5 @@ In-game tutorial content must explicitly cover:
 7. discussion truth uncertainty (claims can be true, false, or manipulative)
 8. vote flow and tally interpretation
 9. single-device vs multi-device differences
-10. multi-device chat usage before voting
+10. multi-device chat usage before voting (and during active discussion flow)
 11. narrator mode expectations (verbal vs chat cue)

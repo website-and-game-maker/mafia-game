@@ -73,6 +73,48 @@ Core phases:
 
 If code behavior and docs diverge, update docs and/or code in the same work stream.
 
+## Owner Directives (Must Follow)
+
+These directives reflect explicit owner instructions and override defaults when they conflict:
+
+- Keep architecture unchanged (`scripts/game.js` for logic/state, `scripts/render.js` for rendering/UI).
+- Always update `TODOS.md` first when new directives arrive, before implementation.
+- `TODOS.md` structure must remain:
+  - `Major Overhauls`
+  - `Priority-1: Bugs`
+  - `Priority-2: Gameplay Improvements`
+  - `Priority-3: Polishing`
+  - `Priority-4: Multiplayer Management` (major multiplayer breakages still belong in Priority-1).
+- Category boundaries:
+  - `Priority-1: Bugs` is only for true malfunctions/regressions.
+  - `Priority-2: Gameplay Improvements` is for behavior/design upgrades.
+  - `Priority-3: Polishing` is for cosmetic/usability quality improvements.
+- Keep the `Human-written uncategorized` section in `TODOS.md`; do not delete it.
+- When uncategorized notes are added, convert them into clear categorized goals while preserving the raw uncategorized notes.
+- Checkbox meaning in `TODOS.md`:
+  - `[ ]` = not implemented
+  - `[x]` = implemented in code
+- If owner explicitly says "do not check anything off", keep all TODO boxes unchecked until told otherwise.
+- Never mark an item complete unless every part of that item is fully fixed.
+- After an item is carefully tested, remove it from `TODOS.md`.
+- When owner requests coding-first mode:
+  - implement all requested TODOs first (Priority-1 -> Priority-2 -> Priority-3 -> Priority-4)
+  - do not run Playwright/browser testing until all requested implementation work is complete.
+- Keep `INSTRUCTIONS.md` continuously aligned with current gameplay behavior (not only abstract rules).
+- Multiplayer UX must stay non-technical for players:
+  - labels use `Single-device` and `Multi-device`
+  - no player-facing raw websocket/relay setup strings
+  - expose room code + join URL + hotlink for multi-device host flow
+  - support dedicated `join.html` join flow
+  - join-code URLs should auto-enter join flow without requiring extra click prompts.
+- Narration requirements:
+  - human narrator gets first turn each phase
+  - cues are phase-safe and non-role-spoiling
+  - single-device cues are verbal; multi-device cues are chat-based.
+- Map requirement tracking:
+  - current gameplay logic may use graph data
+  - roadmap requires floorplan-style map presentation with per-floor images and room-level connection notes.
+
 ## TODO Status Rules
 
 `TODOS.md` uses one checkbox per item:
@@ -87,10 +129,11 @@ Current team preference: once an item is thoroughly tested, remove it from `TODO
 For any meaningful gameplay/UI change:
 1. Run in browser (`python3 -m http.server 8000`).
 2. Run quick static/smoke checks (`scripts/run_quick_checks.sh`).
-3. Exercise changed flow with Playwright.
-4. Log exact outcomes in `TESTING_LOG.md`.
-5. Mark affected items as implemented (`[x]`) in `TODOS.md`; once thoroughly tested, remove those items from the active list.
-6. Add notes to `progress.md`.
+3. If owner requested coding-first mode, defer Playwright until all requested implementation TODOs are complete.
+4. Exercise changed flow with Playwright.
+5. Log exact outcomes in `TESTING_LOG.md`.
+6. Mark affected items as implemented (`[x]`) in `TODOS.md`; once thoroughly tested, remove those items from the active list.
+7. Add notes to `progress.md`.
 
 ## Localhost + Playwright Notes
 
