@@ -240,3 +240,34 @@ Copy this for new sessions:
 
 ### Notes
 - Full Playwright/browser validation intentionally deferred in this session to follow coding-first instruction before exhaustive testing.
+
+## Session 8: Full Button Sweep + Multi-Device Control Pass (2026-02-13)
+
+**Tester:** Codex
+**Method:** Local Playwright (global module) against localhost server
+- Open method: `python3 -m http.server 8000` then run `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+- Multi-device control pass method: same localhost + `python3 scripts/realtime_server.py --port 8765` and targeted Playwright script
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Setup screen buttons (`How to Play`, tab switching, close) | PASS | Modal tabs and close flow worked without console/page errors. |
+| Multiplayer single-device lobby controls | PASS | Add/remove/reorder player controls, Enter-key name input behavior, mode switches all worked. |
+| Single-device pass-and-play + full game cycle | PASS | Automated sweep completed reveal -> day -> night -> morning doctor -> discussion -> vote -> gameover. |
+| Exposure UI + door-option removal | PASS | Exposure badges rendered and legacy door-option block absent. |
+| Mafia night strike controls | PASS | Target selection + kill-method selection + confirm strike path rendered and worked. |
+| Doctor night medicine controls | PASS | Medicine loadout options rendered and confirm flow worked. |
+| Multi-device room controls (`Connect`, `Host This Room`, `Join This Room`, `Copy`, `Disconnect`) | PASS | Verified with realtime relay server running on `ws://localhost:8765`. |
+| Geography and action model assertions | PASS | Story location count > 4, no `coordinate strike`, and location-first action model checks passed in targeted run. |
+
+### Bugs Found
+- `copyLink()` threw page error in restricted clipboard context (`Clipboard: Write permission denied`).
+  - Fix: wrapped clipboard write in try/catch and added fallback copy method.
+- Switching to `Multi-device` mode auto-attempted websocket connect and produced immediate console errors when relay was down.
+  - Fix: removed auto-connect on mode switch for normal host flow; connect now happens explicitly via `Connect` (join-code auto-connect path preserved).
+- Multiplayer name input focus could drop right after Enter in rapid-entry flow.
+  - Fix: strengthened focus restoration with `requestAnimationFrame` + short timeout after add.
+
+### Notes
+- Added repeatable button sweep script: `scripts/playwright_button_sweep.js`.
+- Playwright dependency was provided via global installation for this environment; browser automation succeeded locally even though MCP Playwright localhost access remains blocked.

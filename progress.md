@@ -162,3 +162,17 @@ Pending after this coding-first slice:
 - Added repeatable sanity script `scripts/run_quick_checks.sh` and ran it successfully (syntax + localhost smoke).
 - Re-ran architecture boundary audit (`rg "<[a-zA-Z]" scripts/game.js scripts/render.js`) and confirmed markup remains in `render.js`.
 - Added multiplayer connection guide copy in lobby (local-network vs file-mode vs internet relay guidance) to reduce localhost-only dead-end confusion.
+
+## 2026-02-13 - Full local Playwright sweep + follow-up fixes
+- Ran full button sweep via localhost method:
+  - `python3 -m http.server 8000`
+  - `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+- Added/kept repeatable automation script: `scripts/playwright_button_sweep.js`.
+- Ran additional multi-device control pass with realtime relay:
+  - `python3 scripts/realtime_server.py --port 8765`
+  - verified Connect/Host/Join/Copy/Disconnect controls.
+- Found and fixed 3 runtime issues during testing:
+  1. Clipboard permission pageerror in `copyLink()` -> added try/catch + fallback copy implementation.
+  2. Mode-switch websocket error spam (auto-connect on switching to multi-device) -> connect is now explicit unless join-code flow.
+  3. Name-entry focus drop after Enter -> strengthened focus restore with `requestAnimationFrame` + short timeout.
+- Re-ran full sweep + targeted assertions after fixes; all passes with no console/page errors.

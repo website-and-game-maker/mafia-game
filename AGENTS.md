@@ -111,10 +111,15 @@ If you need Playwright coverage and MCP localhost is unavailable, run local Play
 
 ```bash
 cd /Users/saahir/Desktop/Coding/mafia-game
-node -e \"const { chromium } = require('playwright'); (async () => { const b = await chromium.launch({headless:true}); const p = await b.newPage(); await p.goto('http://localhost:8000'); console.log(await p.title()); await b.close(); })();\"
+NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js
 ```
 
-If `playwright` is missing locally, run `npx --yes playwright --version` first to verify/install tooling.
+If Playwright is missing in this environment:
+
+```bash
+npm install -g playwright@1.58.2
+playwright install chromium
+```
 
 Known constraints in this workspace:
 - Playwright MCP may return `ERR_CONNECTION_REFUSED` for `http://localhost:8000` even when the server is healthy.

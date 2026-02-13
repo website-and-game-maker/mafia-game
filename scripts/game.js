@@ -2204,7 +2204,7 @@ window.goToMultiLobby = () => {
     state.gameCode = sanitizeRoomCode(state.joinCode);
   }
   updateRoleConfig();
-  if (isRealtimeMode() && !state.network.connected) {
+  if (isRealtimeMode() && !state.network.connected && state.joinCode) {
     connectRealtimeSession();
   }
   render();
@@ -2272,7 +2272,7 @@ window.setMultiplayerMode = (mode) => {
   state.multiplayerMode = nextMode;
   if (nextMode === 'realtime') {
     state.network.isHost = !state.joinCode;
-    if (!state.network.connected) connectRealtimeSession();
+    if (state.joinCode && !state.network.connected) connectRealtimeSession();
   } else {
     disconnectRealtimeSession({ keepMode: true });
   }
@@ -2340,11 +2340,13 @@ window.addPlayerFromInput = (nameOverride = null, deviceIdOverride = null) => {
 
   if (addPlayer(candidateName, deviceIdOverride || state.network.deviceId) && input) {
     input.value = '';
+    const ensureFocus = () => {
+      const refreshed = document.getElementById('newPlayerInput');
+      if (refreshed) refreshed.focus();
+    };
+    requestAnimationFrame(ensureFocus);
+    setTimeout(ensureFocus, 24);
   }
-  setTimeout(() => {
-    const refreshed = document.getElementById('newPlayerInput');
-    refreshed?.focus();
-  }, 0);
 };
 
 window.selectPreset = (id) => {
@@ -2360,14 +2362,42 @@ window.selectStory = (id) => {
 
 window.adjustRole = adjustRole;
 
-window.copyLink = () => {
+function fallbackCopyText(text) {
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+window.copyLink = async () => {
   const shareUrl = getShareJoinUrl(state.gameCode);
   const fallbackCode = sanitizeRoomCode(state.gameCode);
   const textToCopy = shareUrl || fallbackCode;
-  navigator.clipboard?.writeText(textToCopy);
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(textToCopy);
+      copied = true;
+    }
+  } catch (error) {
+    copied = fallbackCopyText(textToCopy);
+  }
+  if (!copied) {
+    fallbackCopyText(textToCopy);
+  }
   const btn = document.getElementById('copyBtn');
   if (btn) {
-    btn.textContent = shareUrl ? '✓ Link Copied!' : '✓ Code Copied!';
+    btn.textContent = copied ? (shareUrl ? '✓ Link Copied!' : '✓ Code Copied!') : 'Copied best-effort';
     btn.classList.add('copied');
     setTimeout(() => {
       btn.textContent = '📋 Copy';
