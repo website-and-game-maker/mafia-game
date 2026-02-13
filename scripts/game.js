@@ -142,6 +142,15 @@ const STORY_PRESETS = [
 const BOT_NAMES = ['Alex', 'Jordan', 'Casey', 'Morgan', 'Riley', 'Quinn', 'Avery', 'Parker', 'Sage', 'Blake', 'Drew', 'Reese'];
 
 const PRIVATE_ROOM_IDS = new Set(['bedroom', 'compartment', 'bungalow', 'pod']);
+const JOIN_CODE_PARAM = new URLSearchParams(window.location.search).get('join');
+const DEFAULT_REALTIME_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname || 'localhost'}:8765`;
+
+const realtime = {
+  socket: null,
+  applyingRemoteState: false,
+  replayingRemoteAction: false,
+  lastBroadcastPayload: ''
+};
 
 function inferActionKind(action) {
   const text = `${action.id} ${action.name}`.toLowerCase();
@@ -351,7 +360,19 @@ const SoundEffects = {
 
 const state = {
   screen: 'setup',
-  gameCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+  gameCode: (JOIN_CODE_PARAM || Math.random().toString(36).substring(2, 8)).toUpperCase(),
+  joinCode: JOIN_CODE_PARAM ? JOIN_CODE_PARAM.toUpperCase() : '',
+  multiplayerMode: JOIN_CODE_PARAM ? 'realtime' : 'passplay',
+  network: {
+    connected: false,
+    status: 'offline',
+    isHost: !JOIN_CODE_PARAM,
+    hostDeviceId: null,
+    deviceId: `dev_${Math.random().toString(36).slice(2, 8)}`,
+    deviceName: `Device ${Math.floor(Math.random() * 90) + 10}`,
+    wsUrl: DEFAULT_REALTIME_URL,
+    devices: []
+  },
   soloPlayerName: '',
   settings: {
     aiNarrator: true,
@@ -504,6 +525,222 @@ function clearDeathAnimation() {
   state.deathAnimation = null;
 }
 
+function sanitizeRoomCode(code) {
+  const cleaned = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!cleaned) return state.gameCode;
+  return cleaned.slice(0, 8);
+}
+
+function isRealtimeMode() {
+  return state.multiplayerMode === 'realtime';
+}
+
+function isRealtimeClient() {
+  return isRealtimeMode() && state.network.connected && !state.network.isHost;
+}
+
+function sendRealtimeMessage(payload) {
+  if (!realtime.socket || realtime.socket.readyState !== WebSocket.OPEN) return false;
+  try {
+    realtime.socket.send(JSON.stringify(payload));
+    return true;
+  } catch (error) {
+    console.error('Realtime send failed:', error);
+    return false;
+  }
+}
+
+function buildRealtimeStateSnapshot() {
+  const clone = JSON.parse(JSON.stringify(state));
+  delete clone.network;
+  return clone;
+}
+
+function applyRealtimeStateSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+  realtime.applyingRemoteState = true;
+  try {
+    const keepNetwork = state.network;
+    const keepJoinCode = state.joinCode;
+    const keepMode = state.multiplayerMode;
+    const keepInstructions = state.showInstructions;
+    const keepSettings = state.showSettings;
+
+    Object.keys(snapshot).forEach(key => {
+      if (key === 'network') return;
+      state[key] = snapshot[key];
+    });
+
+    state.network = keepNetwork;
+    state.joinCode = keepJoinCode || state.gameCode;
+    state.multiplayerMode = keepMode;
+    state.showInstructions = keepInstructions;
+    state.showSettings = keepSettings;
+  } finally {
+    realtime.applyingRemoteState = false;
+  }
+}
+
+function updateRealtimePresence(devices, hostDeviceId = null) {
+  state.network.devices = Array.isArray(devices) ? devices : [];
+  state.network.hostDeviceId = hostDeviceId || null;
+  if (hostDeviceId) state.network.isHost = hostDeviceId === state.network.deviceId;
+}
+
+function broadcastRealtimeState(force = false) {
+  if (!isRealtimeMode()) return;
+  if (!state.network.connected || !state.network.isHost) return;
+  if (realtime.applyingRemoteState) return;
+
+  const snapshot = buildRealtimeStateSnapshot();
+  const serialized = JSON.stringify(snapshot);
+  if (!force && serialized === realtime.lastBroadcastPayload) return;
+  realtime.lastBroadcastPayload = serialized;
+
+  sendRealtimeMessage({
+    type: 'state_update',
+    code: state.gameCode,
+    state: snapshot
+  });
+}
+
+function disconnectRealtimeSession({ keepMode = true } = {}) {
+  clearBotChatTimers();
+  if (realtime.socket) {
+    try {
+      realtime.socket.close();
+    } catch (error) {
+      console.error('Realtime close failed:', error);
+    }
+  }
+  realtime.socket = null;
+  realtime.lastBroadcastPayload = '';
+  state.network.connected = false;
+  state.network.status = 'offline';
+  state.network.devices = [];
+  state.network.hostDeviceId = null;
+  if (!keepMode) state.multiplayerMode = 'passplay';
+}
+
+function handleRealtimeMessage(message) {
+  if (!message || typeof message !== 'object') return;
+
+  if (message.type === 'presence') {
+    updateRealtimePresence(message.devices, message.hostDeviceId);
+    render();
+    return;
+  }
+
+  if (message.type === 'state_update') {
+    if (state.network.isHost) return;
+    applyRealtimeStateSnapshot(message.state);
+    render();
+    return;
+  }
+
+  if (message.type === 'action_request') {
+    if (!state.network.isHost) return;
+    const action = message.action;
+    const args = Array.isArray(message.args) ? message.args : [];
+    const handler = window[action];
+    if (typeof handler !== 'function') return;
+    realtime.replayingRemoteAction = true;
+    try {
+      handler(...args);
+    } finally {
+      realtime.replayingRemoteAction = false;
+    }
+    return;
+  }
+
+  if (message.type === 'request_state') {
+    if (state.network.isHost) broadcastRealtimeState(true);
+    return;
+  }
+
+  if (message.type === 'host_changed') {
+    updateRealtimePresence(state.network.devices, message.hostDeviceId || null);
+    if (state.network.isHost) broadcastRealtimeState(true);
+    render();
+    return;
+  }
+
+  if (message.type === 'error') {
+    state.network.status = 'error';
+    render();
+  }
+}
+
+function connectRealtimeSession() {
+  if (!isRealtimeMode()) return;
+  if (state.network.connected) return;
+
+  const roomCode = sanitizeRoomCode(state.joinCode || state.gameCode);
+  state.gameCode = roomCode;
+  state.joinCode = roomCode;
+  state.network.status = 'connecting';
+  render();
+
+  let socket;
+  try {
+    socket = new WebSocket(state.network.wsUrl || DEFAULT_REALTIME_URL);
+  } catch (error) {
+    state.network.status = 'error';
+    render();
+    return;
+  }
+
+  realtime.socket = socket;
+
+  socket.onopen = () => {
+    state.network.connected = true;
+    state.network.status = 'connected';
+    sendRealtimeMessage({
+      type: 'join_room',
+      code: roomCode,
+      deviceId: state.network.deviceId,
+      deviceName: state.network.deviceName,
+      isHost: state.network.isHost
+    });
+    if (state.network.isHost) {
+      broadcastRealtimeState(true);
+    } else {
+      sendRealtimeMessage({ type: 'request_state', code: roomCode });
+    }
+    render();
+  };
+
+  socket.onmessage = (event) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(event.data);
+    } catch (error) {
+      return;
+    }
+    handleRealtimeMessage(parsed);
+  };
+
+  socket.onerror = () => {
+    state.network.status = 'error';
+    render();
+  };
+
+  socket.onclose = () => {
+    disconnectRealtimeSession();
+    render();
+  };
+}
+
+function forwardRealtimeAction(action, args = []) {
+  if (!isRealtimeClient()) return false;
+  return sendRealtimeMessage({
+    type: 'action_request',
+    code: state.gameCode,
+    action,
+    args
+  });
+}
+
 function buildBotDiscussionLine(bot, alivePlayers, triggerText = '') {
   const others = alivePlayers.filter(player => player.id !== bot.id);
   const suspects = samplePlayers(others, 2);
@@ -581,6 +818,7 @@ function queueBotDiscussion(initial = false, triggerText = '') {
 }
 
 function scheduleAutoAdvance(key, handlerName, delay = state.botDelayMs) {
+  if (isRealtimeClient()) return;
   if (state.autoAdvance.key === key) return;
   if (state.autoAdvance.timerId) clearTimeout(state.autoAdvance.timerId);
   state.autoAdvance.key = key;
@@ -868,6 +1106,8 @@ function canStart() {
   const humans = state.players.filter(p => !p.isBot);
   const mafia = state.roleConfig.mafia || 0;
   const town = allPlayers.length - mafia;
+  if (isRealtimeMode() && !state.network.connected) return false;
+  if (isRealtimeMode() && !state.network.isHost) return false;
   if (allPlayers.length < 3) return false;
   if (state.screen === 'multi_lobby' && humans.length === 0) return false;
   if (state.roleConfig.villager < 0) return false;
@@ -880,6 +1120,8 @@ function getStartBlockReason() {
   const humans = state.players.filter(p => !p.isBot);
   const mafia = state.roleConfig.mafia || 0;
   const town = allPlayers.length - mafia;
+  if (isRealtimeMode() && !state.network.connected) return 'Connect realtime first';
+  if (isRealtimeMode() && !state.network.isHost) return 'Waiting for host to start';
   if (allPlayers.length < 3) return `Need 3+ players (${allPlayers.length})`;
   if (state.screen === 'solo_lobby' && !state.soloPlayerName.trim()) return 'Enter your name';
   if (state.screen === 'multi_lobby' && humans.length === 0) return 'Need at least 1 human';
@@ -1468,6 +1710,8 @@ window.goToSetup = () => {
   clearAutoAdvance();
   clearBotChatTimers();
   clearDeathAnimation();
+  disconnectRealtimeSession({ keepMode: Boolean(state.joinCode) });
+  if (!state.joinCode) state.multiplayerMode = 'passplay';
   state.screen = 'setup';
   state.bots = [];
   state.players = [];
@@ -1480,6 +1724,8 @@ window.goToSetup = () => {
 };
 
 window.goToSoloLobby = () => {
+  disconnectRealtimeSession({ keepMode: false });
+  state.multiplayerMode = 'passplay';
   state.screen = 'solo_lobby';
   updateRoleConfig();
   render();
@@ -1487,7 +1733,15 @@ window.goToSoloLobby = () => {
 
 window.goToMultiLobby = () => {
   state.screen = 'multi_lobby';
+  if (state.joinCode) {
+    state.multiplayerMode = 'realtime';
+    state.network.isHost = false;
+    state.gameCode = sanitizeRoomCode(state.joinCode);
+  }
   updateRoleConfig();
+  if (isRealtimeMode() && !state.network.connected) {
+    connectRealtimeSession();
+  }
   render();
 };
 
@@ -1546,6 +1800,38 @@ window.setBotDelay = (ms) => {
   render();
 };
 
+window.setMultiplayerMode = (mode) => {
+  const nextMode = mode === 'realtime' ? 'realtime' : 'passplay';
+  state.multiplayerMode = nextMode;
+  if (nextMode === 'realtime') {
+    state.network.isHost = !state.joinCode;
+    if (!state.network.connected) connectRealtimeSession();
+  } else {
+    disconnectRealtimeSession({ keepMode: true });
+  }
+  render();
+};
+
+window.setRealtimeDeviceName = (value) => {
+  state.network.deviceName = String(value || '').slice(0, 32) || state.network.deviceName;
+};
+
+window.setRealtimeUrl = (value) => {
+  state.network.wsUrl = String(value || '').trim() || DEFAULT_REALTIME_URL;
+};
+
+window.connectRealtime = () => {
+  if (!isRealtimeMode()) state.multiplayerMode = 'realtime';
+  if (state.joinCode) state.network.isHost = false;
+  connectRealtimeSession();
+  render();
+};
+
+window.disconnectRealtime = () => {
+  disconnectRealtimeSession({ keepMode: true });
+  render();
+};
+
 window.addBot = addBot;
 window.removeBot = removeBot;
 window.removePlayer = removePlayer;
@@ -1553,10 +1839,14 @@ window.scheduleAutoAdvance = scheduleAutoAdvance;
 window.clearAutoAdvance = clearAutoAdvance;
 window.getVisibleTargetsForMafia = getVisibleTargetsForMafia;
 
-window.addPlayerFromInput = () => {
+window.addPlayerFromInput = (nameOverride = null) => {
   const input = document.getElementById('newPlayerInput');
-  if (!input) return;
-  if (addPlayer(input.value)) {
+  const candidateName = typeof nameOverride === 'string'
+    ? nameOverride
+    : (input?.value || '');
+  if (!candidateName.trim()) return;
+
+  if (addPlayer(candidateName) && input) {
     input.value = '';
   }
   setTimeout(() => {
@@ -1597,6 +1887,8 @@ window.newGame = () => {
   clearAutoAdvance();
   clearBotChatTimers();
   clearDeathAnimation();
+  disconnectRealtimeSession({ keepMode: Boolean(state.joinCode) });
+  if (!state.joinCode) state.multiplayerMode = 'passplay';
   state.screen = 'setup';
   state.players = [];
   state.bots = [];
@@ -1822,8 +2114,9 @@ window.setChatSender = (playerId) => {
   render();
 };
 
-window.sendDiscussionMessage = () => {
-  const text = state.chatDraft.trim();
+window.sendDiscussionMessage = (textOverride = null) => {
+  const source = typeof textOverride === 'string' ? textOverride : state.chatDraft;
+  const text = source.trim();
   if (!text) return;
 
   const aliveHumans = getAliveHumans();
@@ -1888,3 +2181,81 @@ window.confirmVote = () => {
 };
 
 window.processVote = processVote;
+
+const REALTIME_FORWARD_ACTIONS = new Set([
+  'goToSetup',
+  'goToMultiLobby',
+  'removePlayer',
+  'addPlayerFromInput',
+  'addBot',
+  'removeBot',
+  'selectPreset',
+  'selectStory',
+  'adjustRole',
+  'startGame',
+  'newGame',
+  'showCurrentRole',
+  'nextReveal',
+  'selectLocation',
+  'selectAction',
+  'selectActionTarget',
+  'selectDoorOption',
+  'confirmDayPlan',
+  'selectTarget',
+  'continueNight',
+  'confirmMafiaTarget',
+  'selectSave',
+  'confirmDoctorSave',
+  'afterAnnouncement',
+  'afterVoteAnnouncement',
+  'openDiscussionForCurrent',
+  'advanceDiscussion',
+  'proceedToVote',
+  'setChatSender',
+  'setChatDraft',
+  'sendDiscussionMessage',
+  'selectVote',
+  'confirmVote'
+]);
+
+const REALTIME_ARG_MAPPERS = {
+  addPlayerFromInput: (args) => {
+    if (typeof args[0] === 'string') return args;
+    const input = document.getElementById('newPlayerInput');
+    return [input?.value || ''];
+  },
+  sendDiscussionMessage: (args) => {
+    if (typeof args[0] === 'string') return args;
+    return [state.chatDraft];
+  }
+};
+
+let realtimeWrappersInstalled = false;
+
+function installRealtimeActionWrappers() {
+  if (realtimeWrappersInstalled) return;
+  realtimeWrappersInstalled = true;
+
+  REALTIME_FORWARD_ACTIONS.forEach(actionName => {
+    const original = window[actionName];
+    if (typeof original !== 'function') return;
+
+    window[actionName] = (...args) => {
+      if (isRealtimeClient() && !realtime.replayingRemoteAction) {
+        const mapper = REALTIME_ARG_MAPPERS[actionName];
+        const mappedArgs = mapper ? mapper(args) : args;
+        const forwarded = forwardRealtimeAction(actionName, mappedArgs);
+        if (forwarded) return;
+      }
+      return original(...args);
+    };
+  });
+}
+
+installRealtimeActionWrappers();
+
+window.afterRender = () => {
+  if (isRealtimeMode() && state.network.connected && state.network.isHost && !realtime.applyingRemoteState) {
+    broadcastRealtimeState();
+  }
+};

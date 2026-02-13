@@ -45,6 +45,7 @@ function render() {
   else if (state.screen === 'multi_lobby') app.innerHTML = renderMultiLobby();
   else if (state.screen === 'game') app.innerHTML = renderGame();
   attachEventListeners();
+  if (typeof window.afterRender === 'function') window.afterRender();
 }
 
 // -----------------------------------------------------------------------------
@@ -69,6 +70,13 @@ function renderSetup() {
           <div class="mode-btn-desc">Play with friends</div>
         </button>
       </div>
+      ${state.joinCode ? `
+        <div class="card" style="border-color:rgba(59,130,246,0.5)">
+          <div class="section-label" style="color:#93c5fd">🔗 Join Code Detected</div>
+          <p style="color:var(--text-secondary);margin-bottom:10px">Code: <strong>${state.joinCode}</strong></p>
+          <button class="btn btn-primary btn-full" onclick="goToMultiLobby()">Open Realtime Lobby</button>
+        </div>
+      ` : ''}
     </div>
     ${state.showInstructions ? renderInstructionsModal() : ''}
   `;
@@ -148,6 +156,15 @@ function renderMultiLobby() {
   const total = getTotalRoles();
   const warnings = getStartWarnings();
   const blockReason = getStartBlockReason();
+  const isRealtime = state.multiplayerMode === 'realtime';
+  const deviceList = state.network.devices || [];
+  const showDeviceList = isRealtime && deviceList.length > 1;
+  const waitingForHost = isRealtime && !state.network.isHost;
+  const realtimeStatusColor = state.network.status === 'connected'
+    ? '#4ade80'
+    : state.network.status === 'error'
+      ? '#f87171'
+      : '#fbbf24';
 
   return `
     <div class="container wide">
@@ -161,12 +178,58 @@ function renderMultiLobby() {
       <h2 style="color:var(--red-accent)">Multiplayer Lobby</h2>
 
       <div class="card">
-        <div style="color:var(--text-secondary);margin-bottom:8px">Share to add devices</div>
+        <div class="section-label">🛰️ Multiplayer Mode</div>
+        <div class="mode-switch-row">
+          <button class="btn btn-small ${!isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('passplay')">Pass-and-Play</button>
+          <button class="btn btn-small ${isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('realtime')">Realtime (WebSocket)</button>
+        </div>
+        ${isRealtime ? `
+          <div class="realtime-meta">
+            <div class="realtime-row">
+              <label>Device name</label>
+              <input type="text" class="input" value="${state.network.deviceName.replace(/"/g, '&quot;')}" oninput="setRealtimeDeviceName(this.value)" maxlength="32"/>
+            </div>
+            <div class="realtime-row">
+              <label>Realtime URL</label>
+              <input type="text" class="input" value="${state.network.wsUrl.replace(/"/g, '&quot;')}" oninput="setRealtimeUrl(this.value)"/>
+            </div>
+            <div class="realtime-row">
+              <div>Connection: <span style="color:${realtimeStatusColor}">${state.network.status}</span></div>
+              <div style="color:var(--text-secondary);font-size:0.85rem">${state.network.isHost ? 'Host device' : 'Client device'}</div>
+            </div>
+            <div class="mode-switch-row">
+              <button class="btn btn-small btn-primary" onclick="connectRealtime()" ${state.network.connected ? 'disabled' : ''}>Connect</button>
+              <button class="btn btn-small btn-secondary" onclick="disconnectRealtime()" ${!state.network.connected ? 'disabled' : ''}>Disconnect</button>
+            </div>
+          </div>
+        ` : `
+          <div style="color:var(--text-secondary);font-size:0.9rem">Classic single-device pass flow. Realtime mode enables multi-device sync.</div>
+        `}
+      </div>
+
+      <div class="card">
+        <div style="color:var(--text-secondary);margin-bottom:8px">${isRealtime ? 'Share to join this realtime room' : 'Share to add devices'}</div>
         <div class="input-row">
           <input type="text" class="input" readonly value="${window.location.origin}?join=${state.gameCode}"/>
           <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 Copy</button>
         </div>
       </div>
+
+      ${showDeviceList ? `
+        <div class="card">
+          <div class="section-label">📱 Connected Devices (${deviceList.length})</div>
+          <div class="device-list">
+            ${deviceList.map(device => `
+              <div class="player-item">
+                <span class="player-name">
+                  ${device.isHost ? '🛡️' : '📱'} ${device.deviceName}
+                </span>
+                <span style="font-size:0.8rem;color:var(--text-secondary)">${device.deviceId === state.network.deviceId ? 'This device' : 'Online'}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
 
       <div class="card">
         <div class="section-label">👥 Players (${state.players.length})</div>
@@ -215,8 +278,8 @@ function renderMultiLobby() {
 
       ${renderRoleConfig(allPlayers, total, warnings)}
 
-      <button class="btn btn-danger btn-full btn-lg" onclick="startGame()" ${blockReason ? 'disabled' : ''}>
-        ${blockReason || 'Start Game'}
+      <button class="btn btn-danger btn-full btn-lg" onclick="startGame()" ${blockReason || waitingForHost ? 'disabled' : ''}>
+        ${waitingForHost ? 'Waiting for Host to Start' : (blockReason || 'Start Game')}
       </button>
     </div>
     ${state.showInstructions ? renderInstructionsModal() : ''}
@@ -836,7 +899,9 @@ function renderDiscussionPhase(current) {
     nearby: null
   };
   const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
-  const chatIsProminent = aliveHumans.length > 1 || state.players.length > 1;
+  const chatIsProminent = aliveHumans.length > 1
+    || state.players.length > 1
+    || (state.multiplayerMode === 'realtime' && (state.network.devices || []).length > 1);
 
   return `
     <div class="card">

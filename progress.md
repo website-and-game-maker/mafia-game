@@ -56,3 +56,32 @@ Original prompt: Build and polish this multiplayer-capable mafia web game withou
 - Playwright notes:
   - intermittent MCP Chrome profile lock was observed; workaround used (quit/relaunch Chrome) and tests completed successfully.
   - verified chat prominence class and sender attribution selection behavior in discussion (`chat-panel-prominent`, `setChatSender` + `sendDiscussionMessage`).
+
+## 2026-02-13 - Realtime multi-device pass
+- Added realtime multiplayer foundation without changing core architecture:
+  - `state.multiplayerMode` (`passplay`/`realtime`) and `state.network` session metadata
+  - host-authoritative WebSocket sync with presence, state snapshots, and forwarded action requests
+  - render hook (`window.afterRender`) broadcasts host state deltas
+  - non-host clients suppress local auto-advance timers to avoid duplicate bot progress
+- Added local relay server: `scripts/realtime_server.py` (rooms, host election, presence broadcast, state/action forwarding).
+- Added runtime dependency in `requirements.txt`: `websockets>=12.0`.
+- Multiplayer UI updates in lobby:
+  - mode switch (Pass-and-Play vs Realtime), device name/URL fields, connect/disconnect controls
+  - connected-device list only shown when device count > 1
+  - join-link detection card on setup screen (`?join=CODE`) for direct realtime onboarding
+- Debugged/fixed recursion bug in realtime toggle:
+  - root cause was global name collision between internal realtime functions and window handlers
+  - renamed internals to `connectRealtimeSession` / `disconnectRealtimeSession`
+- Playwright Session 4 validated:
+  - two-tab host/client presence
+  - client lobby actions forwarded to host and synced back
+  - host start synced to client game phases
+  - client reveal action forwarded correctly
+
+## 2026-02-13 - Project hygiene closure
+- Added backup utility script: `scripts/create_backup.sh`.
+- Executed backup script and confirmed snapshot archive creation in parent directory:
+  - `/Users/saahir/Desktop/Coding/mafia-game-backup-20260212-193953.tar.gz`
+- Ran static separation audit:
+  - verified HTML/template rendering lives in `scripts/render.js`
+  - no UI markup/template strings found in `scripts/game.js`

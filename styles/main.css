@@ -159,6 +159,11 @@ h2 {
 .input-row { display: flex; gap: 8px; }
 .input-row .input { flex: 1; }
 
+.mode-switch-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.realtime-meta { display: flex; flex-direction: column; gap: 10px; }
+.realtime-row { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; color: var(--text-secondary); }
+.device-list { max-height: 180px; overflow-y: auto; }
+
 /* Player Lists */
 .player-list { max-height: 200px; overflow-y: auto; margin-bottom: 12px; }
 .bot-list { max-height: 160px; overflow-y: auto; margin-bottom: 12px; scroll-behavior: smooth; }

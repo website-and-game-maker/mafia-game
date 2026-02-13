@@ -82,6 +82,51 @@ This file tracks testing sessions. AI and humans add test results here.
 
 ---
 
+## Session 4: Realtime Multi-Device Regression (2026-02-13)
+
+**Tester:** Codex
+**Method:** Playwright MCP multi-tab run + local realtime relay (`python3 scripts/realtime_server.py --port 8765`)
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Host realtime connect in multiplayer lobby | PASS | Realtime mode connected successfully (`ws://localhost:8765`) with host role shown. |
+| Join link onboarding (`?join=CODE`) | PASS | Join-code card appears on setup and opens directly into realtime client lobby. |
+| Device presence list | PASS | Both host/client lobbies show connected devices when count > 1. |
+| Hide device list when only one device | PASS | With a single connected device, connected-device panel is not rendered. |
+| Cross-device lobby action forwarding | PASS | Client-side Add Player action (`Zoe`) forwarded to host; host and client stayed in sync. |
+| Cross-device phase/state sync | PASS | Host `Start Game` moved both tabs into role reveal/day flow in sync. |
+| Client-to-host gameplay action forwarding | PASS | Client `Got it!` reveal action advanced host and client to day phase. |
+| Runtime console health | PASS | No console errors after recursion fix. |
+
+### Bugs Found
+- Realtime mode initially caused recursion (`Maximum call stack size exceeded`) from global name collision between internal `connectRealtime`/`disconnectRealtime` functions and window handlers.
+  - Fix: renamed internal functions to `connectRealtimeSession` / `disconnectRealtimeSession` and updated all call sites.
+
+### Notes
+- Realtime relay requires `websockets` Python package (`pip install websockets` or `pip install -r requirements.txt`).
+
+---
+
+## Session 5: Project Hygiene Verification (2026-02-13)
+
+**Tester:** Codex
+**Method:** Static checks + local script execution
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Responsibility split audit (`game.js` vs `render.js`) | PASS | `rg \"<[a-zA-Z]\" scripts/game.js scripts/render.js` returned UI markup only in `scripts/render.js` (none in `scripts/game.js`). |
+| Backup snapshot script execution | PASS | Ran `scripts/create_backup.sh`; generated `/Users/saahir/Desktop/Coding/mafia-game-backup-20260212-193953.tar.gz`. |
+
+### Bugs Found
+- None.
+
+### Notes
+- Backup archive intentionally created outside repo root (parent directory) per hygiene requirement.
+
+---
+
 ## Test Checklist
 
 Use this for browser testing sessions.

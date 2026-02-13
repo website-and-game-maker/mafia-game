@@ -4,3 +4,4 @@
 # Example: For a more advanced dev server
 # flask
 # livereload
+websockets>=12.0

@@ -43,10 +43,10 @@ Status format per item:
 
 ## P3 Multiplayer And Cross-Device
 
-- [ ] Fixed | [ ] Tested - Multi-device lobby and device list (hide device list when only one device is present).
+- [x] Fixed | [x] Tested - Multi-device lobby and device list (hide device list when only one device is present).
 - [x] Fixed | [x] Tested - Make chat prominent in multi-device discussion.
 - [x] Fixed | [x] Tested - Message attribution when one device has multiple players.
-- [ ] Fixed | [ ] Tested - WebSocket real-time support (currently pass-and-play oriented).
+- [x] Fixed | [x] Tested - WebSocket real-time support (currently pass-and-play oriented).
 
 ## P4 Narration, Atmosphere, And Polish
 
@@ -60,5 +60,5 @@ Status format per item:
 
 ## P5 Project Hygiene
 
-- [ ] Fixed | [ ] Tested - Keep `scripts/game.js` and `scripts/render.js` separated by responsibility.
-- [ ] Fixed | [ ] Tested - Maintain occasional compressed backup snapshot in parent directory.
+- [x] Fixed | [x] Tested - Keep `scripts/game.js` and `scripts/render.js` separated by responsibility.
+- [x] Fixed | [x] Tested - Maintain occasional compressed backup snapshot in parent directory.

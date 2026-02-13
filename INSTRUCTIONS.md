@@ -129,7 +129,9 @@ Higher risk should generally yield higher potential intel.
 
 ### Multiplayer Multi-Device
 - Uses join code/lobby and per-device player assignment.
+- Uses WebSocket realtime relay for cross-device state/chat sync (default URL: `ws://<host>:8765`).
 - Chat is a primary UI element during discussion.
+- Lobby should show connected-device presence only when more than one device is connected.
 - Real-time sync behavior should remain compatible with single-device flow.
 
 ## Presets And Role Scaling

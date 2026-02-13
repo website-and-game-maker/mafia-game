@@ -17,6 +17,8 @@ Do not rewrite the architecture unless explicitly approved.
 ```bash
 cd mafia-game
 python3 -m http.server 8000
+# Optional for realtime multi-device mode:
+# python3 scripts/realtime_server.py --host 0.0.0.0 --port 8765
 # Open http://localhost:8000
 ```
 
@@ -28,7 +30,9 @@ mafia-game/
 ├── styles/main.css      # Styling
 ├── scripts/
 │   ├── game.js          # State, game logic, event handlers
-│   └── render.js        # UI rendering functions
+│   ├── render.js        # UI rendering functions
+│   ├── realtime_server.py # WebSocket relay for realtime multi-device sync
+│   └── create_backup.sh # Creates timestamped tar.gz snapshot in parent directory
 ├── AGENTS.md            # Agent workflow (this file)
 ├── CLAUDE.md            # Historical project overview
 ├── INSTRUCTIONS.md      # Player rules + full gameplay behavior
