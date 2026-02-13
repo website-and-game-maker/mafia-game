@@ -5,7 +5,7 @@ This file explains how coding agents should work in this repository.
 ## Project Goal
 
 Build a browser-based Mafia game with:
-- location-based intel/risk gameplay
+- location-based geography + exposure gameplay
 - solo and multiplayer support
 - compatibility across multiple devices
 - a clear, testable day/night/discussion/vote loop
@@ -31,7 +31,10 @@ mafia-game/
 ├── scripts/
 │   ├── game.js          # State, game logic, event handlers
 │   ├── render.js        # UI rendering functions
+│   ├── geography_data.js # Story map graphs (nodes/edges/sight/hearing)
+│   ├── narration_data.js # Story narration packs/backstory templates
 │   ├── realtime_server.py # WebSocket relay for realtime multi-device sync
+│   ├── run_quick_checks.sh # Repeatable syntax + localhost smoke checks
 │   └── create_backup.sh # Creates timestamped tar.gz snapshot in parent directory
 ├── AGENTS.md            # Agent workflow (this file)
 ├── CLAUDE.md            # Historical project overview
@@ -85,10 +88,11 @@ No separate "Completed" section. Keep items in their impact category.
 
 For any meaningful gameplay/UI change:
 1. Run in browser (`python3 -m http.server 8000`).
-2. Exercise changed flow with Playwright.
-3. Log exact outcomes in `TESTING_LOG.md`.
-4. Update affected items in `TODOS.md` (`Fixed` and `Tested`).
-5. Add notes to `progress.md`.
+2. Run quick static/smoke checks (`scripts/run_quick_checks.sh`).
+3. Exercise changed flow with Playwright.
+4. Log exact outcomes in `TESTING_LOG.md`.
+5. Update affected items in `TODOS.md` (`Fixed` and `Tested`).
+6. Add notes to `progress.md`.
 
 ## Localhost + Playwright Notes
 
@@ -102,6 +106,15 @@ curl -I http://localhost:8000
 ```
 
 Expected health check: `HTTP/1.0 200 OK`.
+
+If you need Playwright coverage and MCP localhost is unavailable, run local Playwright from this workspace (same network namespace as the server):
+
+```bash
+cd /Users/saahir/Desktop/Coding/mafia-game
+node -e \"const { chromium } = require('playwright'); (async () => { const b = await chromium.launch({headless:true}); const p = await b.newPage(); await p.goto('http://localhost:8000'); console.log(await p.title()); await b.close(); })();\"
+```
+
+If `playwright` is missing locally, run `npx --yes playwright --version` first to verify/install tooling.
 
 Known constraints in this workspace:
 - Playwright MCP may return `ERR_CONNECTION_REFUSED` for `http://localhost:8000` even when the server is healthy.
@@ -138,7 +151,7 @@ These points are repeatedly emphasized by the user and should be treated as defa
   - human narrator support without role-spoiling data
   - single-device narrator delivery is verbal
   - multi-device narrator delivery is chat-based
-- Geography/map graph overhaul and narration engine are major multi-session overhauls (tracked in `TODOS.md`).
+- Geography/map graph and narration engine are major systems and should stay aligned with `scripts/geography_data.js` + `scripts/narration_data.js`.
 - `TODOS.md` is impact-first and status-driven (`Fixed` vs `Tested`; use `🔧` for fixed-not-tested).
 
 ## Commit Naming Guidance

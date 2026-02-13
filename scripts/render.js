@@ -10,24 +10,18 @@ function isSoloMode() {
   return state.players.length === 1 && state.bots.length > 0;
 }
 
-function getRiskClass(risk) {
-  // Risk is 0-5 scale, convert to percentage for class determination
-  const pct = (risk / 5) * 100;
-  if (pct <= 30) return 'risk-low';
-  if (pct <= 60) return 'risk-medium';
-  return 'risk-high';
+function clampExposure(value) {
+  return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
-function getIntelClass(intel) {
-  // Intel is 0-1 scale (percentage as decimal)
-  const pct = intel * 100;
-  if (pct <= 30) return 'intel-low';
-  if (pct <= 60) return 'intel-medium';
-  return 'intel-high';
+function getExposurePct(exposure) {
+  return Math.round(clampExposure(exposure) * 100);
 }
 
-function getRiskPctLabel(risk) {
-  return `${Math.round((Math.max(0, Math.min(5, risk || 0)) / 5) * 100)}%`;
+function getExposureColor(exposure) {
+  const pct = clampExposure(exposure);
+  const hue = Math.round((1 - pct) * 120);
+  return `hsl(${hue} 85% 52%)`;
 }
 
 function getAliveDiscussionHumans() {
@@ -220,7 +214,13 @@ function renderMultiLobby() {
   const blockReason = getStartBlockReason();
   const isRealtime = state.multiplayerMode === 'realtime';
   const deviceList = state.network.devices || [];
-  const showDeviceList = isRealtime && deviceList.length > 1;
+  const orderedDeviceIds = state.network.deviceOrder || [];
+  const orderedDeviceList = orderedDeviceIds.length > 0
+    ? orderedDeviceIds
+      .map(id => deviceList.find(device => device.deviceId === id))
+      .filter(Boolean)
+    : deviceList;
+  const showDeviceList = isRealtime && orderedDeviceList.length > 1;
   const waitingForHost = isRealtime && !state.network.isHost;
   const realtimeStatusColor = state.network.status === 'connected'
     ? '#4ade80'
@@ -228,6 +228,7 @@ function renderMultiLobby() {
       ? '#f87171'
       : '#fbbf24';
   const shareJoinUrl = isRealtime ? getShareJoinUrl(state.gameCode) : '';
+  const runningFromFile = window.location.protocol === 'file:';
 
   return `
     <div class="container wide">
@@ -293,21 +294,37 @@ function renderMultiLobby() {
             <input type="text" class="input" readonly value="${shareJoinUrl || state.gameCode}"/>
             <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 Copy</button>
           </div>
+          <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:10px;line-height:1.4">
+            <strong>Connection guide:</strong><br/>
+            ${runningFromFile
+              ? 'Running from file mode: share the same app build, relay URL, and room code manually.'
+              : 'Local network: open this same URL on another device and join by room code.'}<br/>
+            Internet play: use an internet-reachable site URL plus a public relay URL in the multiplayer settings.
+          </div>
         </div>
       ` : ''}
 
       ${showDeviceList ? `
         <div class="card">
-          <div class="section-label">📱 Connected Devices (${deviceList.length})</div>
+          <div class="section-label">📱 Connected Devices (${orderedDeviceList.length})</div>
           <div class="device-list">
-            ${deviceList.map(device => `
+            ${orderedDeviceList.map((device, index) => `
               <div class="player-item">
                 <span class="player-name">
                   ${device.isHost ? '🛡️' : '📱'} ${device.deviceName}
                 </span>
-                <span style="font-size:0.8rem;color:var(--text-secondary)">${device.deviceId === state.network.deviceId ? 'This device' : 'Online'}</span>
+                <div class="player-item-actions">
+                  ${state.network.isHost ? `
+                    <button class="order-btn" onclick="moveDevice('${device.deviceId}', -1)" ${index === 0 ? 'disabled' : ''} title="Move device up">↑</button>
+                    <button class="order-btn" onclick="moveDevice('${device.deviceId}', 1)" ${index === orderedDeviceList.length - 1 ? 'disabled' : ''} title="Move device down">↓</button>
+                  ` : ''}
+                  <span style="font-size:0.8rem;color:var(--text-secondary)">${device.deviceId === state.network.deviceId ? 'This device' : 'Online'}</span>
+                </div>
               </div>
             `).join('')}
+          </div>
+          <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px">
+            ${state.network.isHost ? 'Host can reorder which device goes first.' : 'Waiting for host device order.'}
           </div>
         </div>
       ` : ''}
@@ -408,7 +425,7 @@ function renderRoleConfig(allPlayers, total, warnings) {
           </div>
         `).join('')}
         <div class="role-summary">
-          <span class="stat-display">👤 Villagers: ${Math.max(0, allPlayers.length - state.roleConfig.mafia - state.roleConfig.doctor - state.roleConfig.detective)}</span>
+          <span class="stat-display">👤 ${getRoleDisplayName('villager')}s: ${Math.max(0, allPlayers.length - state.roleConfig.mafia - state.roleConfig.doctor - state.roleConfig.detective)}</span>
           <span class="stat-display">Assigned: ${total}/${allPlayers.length}</span>
         </div>
         ${state.selectedPreset?.id === 'classic' ? '<div style="color:var(--text-secondary);font-size:0.85rem;margin-top:8px">Classic target at 12 players: 5 Mafia / 3 Doctor / 2 Detective.</div>' : ''}
@@ -481,9 +498,9 @@ function renderGame() {
     if (state.finalDeath) {
       if (state.finalDeath.type === 'night') {
         if (state.finalDeath.saved) {
-          finalDeathMessage = `${state.finalDeath.victim} was attacked but saved by the Doctor.`;
+          finalDeathMessage = `${state.finalDeath.victim} was attacked but saved by the Doctor.${state.finalDeath.method ? ` Attack method: ${state.finalDeath.method}.` : ''}`;
         } else if (state.finalDeath.victim) {
-          finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was killed during the night.`;
+          finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was killed during the night.${state.finalDeath.method ? ` Method: ${state.finalDeath.method}.` : ''}`;
         } else {
           finalDeathMessage = 'The night passed peacefully.';
         }
@@ -731,16 +748,18 @@ function renderDayPhase(current, allPlayers) {
   const isMafia = current.role === 'mafia';
   const location = getLocationById(state.selectedLocation);
   const actions = getAvailableActionsForPlayer(current, location);
-  const targetCandidates = allPlayers.filter(player => player.alive && player.id !== current.id);
+  const targetCandidates = allPlayers.filter(player =>
+    player.alive
+    && player.id !== current.id
+    && (isMafia ? player.role !== 'mafia' : true)
+  );
 
-  const sortedLocations = [...state.selectedStory.locations].sort((x, y) => (x.risk || 0) - (y.risk || 0));
+  const sortedLocations = [...state.selectedStory.locations].sort((x, y) => (x.exposure || 0) - (y.exposure || 0));
   const actionNeedsTarget = Boolean(state.selectedAction?.requiresTarget);
-  const doorChoiceRequired = Boolean(location?.canLock && !isMafia && current.role !== 'detective');
   const canConfirm = Boolean(
     state.selectedLocation
       && state.selectedAction
       && (!actionNeedsTarget || state.selectedActionTarget)
-      && (!doorChoiceRequired || state.selectedDoorOption)
   );
 
   return `
@@ -756,28 +775,29 @@ function renderDayPhase(current, allPlayers) {
             <div class="location-card ${state.selectedLocation === l.id ? 'selected' : ''}" onclick="selectLocation('${l.id}')">
               <div class="location-header">
                 <span class="location-name">${l.name}</span>
-                <span class="risk-badge risk-${l.risk || 0}">Risk ${getRiskPctLabel(l.risk || 0)}</span>
+                <span class="exposure-badge" style="color:${getExposureColor(l.exposure || 0)};border-color:${getExposureColor(l.exposure || 0)}">
+                  Exposure ${getExposurePct(l.exposure || 0)}%
+                </span>
               </div>
-              ${l.canLock ? '<span style="font-size:0.8rem;color:#4ade80">🔒 Private room option</span>' : ''}
+              <span style="font-size:0.8rem;color:var(--text-secondary)">${(l.tags || []).join(' • ') || l.nodeType || ''}</span>
             </div>
           `).join('')}
       </div>
 
       ${location ? `
-        <div class="section-label ${isMafia ? 'mafia-section-label' : ''}">
-          ${isMafia ? '2. Mafia-only planning options' : '2. What will you do there?'}
+        <div class="section-label">
+          ${isMafia ? '2. Mafia route options' : '2. What will you do there?'}
         </div>
         <div class="action-list">
           ${actions.map(ac => `
-            <div class="action-card ${isMafia ? 'mafia-action-card' : ''} ${state.selectedAction?.id === ac.id ? 'selected' : ''}" onclick="selectAction('${ac.id}')">
+            <div class="action-card ${state.selectedAction?.id === ac.id ? 'selected' : ''}" onclick="selectAction('${ac.id}')">
               <div class="action-header">
                 <span class="action-name">${ac.name}</span>
-                ${!isMafia ? `
-                  <div class="action-stats">
-                    <span class="${getIntelClass(ac.intel || 0)}">Intel ${Math.round((ac.intel || 0) * 100)}%</span>
-                    <span class="${getRiskClass(ac.risk || 0)}">Risk ${getRiskPctLabel(ac.risk || 0)}</span>
-                  </div>
-                ` : `<span style="color:#fca5a5;font-size:0.8rem">Mafia</span>`}
+                <div class="action-stats">
+                  <span class="exposure-chip" style="color:${getExposureColor(ac.exposure || 0)};border-color:${getExposureColor(ac.exposure || 0)}">
+                    Exposure ${getExposurePct(ac.exposure || 0)}%
+                  </span>
+                </div>
               </div>
               <div class="action-desc">${ac.desc}</div>
             </div>
@@ -797,40 +817,14 @@ function renderDayPhase(current, allPlayers) {
         </div>
       ` : ''}
 
-      ${location && location.canLock && state.selectedAction && !isMafia && current.role !== 'detective' ? `
-        <div class="section-label">3. What about your door?</div>
-        <div class="door-options">
-          <div class="door-option ${state.selectedDoorOption === 'lock' ? 'selected' : ''}" onclick="selectDoorOption('lock')">
-            <div class="door-option-header">
-              <span class="door-option-name">🔒 Lock door</span>
-              <div class="door-option-stats">
-                <span class="intel-low">-20% Intel</span>
-                <span class="risk-low">-1 Risk</span>
-              </div>
-            </div>
-            <div class="door-option-desc">Safer, but you might miss important sounds</div>
-          </div>
-          <div class="door-option ${state.selectedDoorOption === 'listen' ? 'selected' : ''}" onclick="selectDoorOption('listen')">
-            <div class="door-option-header">
-              <span class="door-option-name">👂 Leave open to listen</span>
-              <div class="door-option-stats">
-                <span class="intel-high">+15% Intel</span>
-                <span class="risk-high">+1 Risk</span>
-              </div>
-            </div>
-            <div class="door-option-desc">Risky, but you might hear something useful</div>
-          </div>
-        </div>
-      ` : ''}
-
-      ${location && location.canLock && state.selectedAction && current.role === 'detective' ? `
+      ${current.role === 'detective' ? `
         <div class="card detective-lock-note">
-          <strong>Detective rule:</strong> detectives stay in snoop/linger posture and never fully lock in.
+          <strong>Detective rule:</strong> detectives are always alert and never fully doze off, so they stay stealthier than most roles.
         </div>
       ` : ''}
 
       <button class="btn btn-primary btn-full btn-lg" onclick="confirmDayPlan()" ${!canConfirm ? 'disabled' : ''}>
-        ${isMafia ? 'Lock In Mafia Plan' : 'Confirm Plan'}
+        ${isMafia ? 'Confirm Route' : 'Confirm Plan'}
       </button>
     </div>
   `;
@@ -845,16 +839,16 @@ function renderNightPhase(current, alivePlayers) {
     `;
   }
 
-  const aliveHumans = alivePlayers.filter(p => !p.isBot);
-  const humanMafia = aliveHumans.some(p => p.role === 'mafia');
+  const nightActors = getNightActors(alivePlayers);
+  const isNightActor = nightActors.some(actor => actor.id === current.id);
 
-  if (current.isBot || current.role !== 'mafia' || !humanMafia) {
+  if (current.isBot || !isNightActor) {
     scheduleAutoAdvance(`night_${current.id}_${state.currentPlayerIndex}`, 'continueNight');
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:8px">🌙 Night falls...</div>
         <div style="color:var(--text-secondary);margin-bottom:16px">
-          ${current.role === 'mafia' ? 'The shadows move...' : 'You settle in.'}
+          ${current.role === 'mafia' ? 'The shadows move...' : 'Everyone stays alert through the night.'}
         </div>
         <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
       </div>
@@ -862,13 +856,40 @@ function renderNightPhase(current, alivePlayers) {
   }
   clearAutoAdvance();
 
-  // In solo mode, skip the turn prompt - go straight to target selection
+  // In solo mode, skip the turn prompt.
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
         <p style="color:var(--text-secondary);margin-bottom:16px">Night action is private.</p>
-        <button class="btn btn-danger btn-lg" onclick="showCurrentRole()">Open Mafia Night Console</button>
+        <button class="btn btn-warning btn-lg" onclick="showCurrentRole()">Open Night Console</button>
+      </div>
+    `;
+  }
+
+  if (current.role === 'doctor') {
+    const selectedMedicine = state.selectedMedicine || state.doctorMedicineLoadout;
+    return `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <span style="color:${ROLES.doctor.color}">${ROLES.doctor.icon}</span>
+          <span>${current.name}</span>
+          <span style="font-size:0.85rem;color:#93c5fd">(Doctor night loadout)</span>
+        </div>
+        <div class="section-label">Select medicine to prepare before morning:</div>
+        <div class="action-list">
+          ${DOCTOR_MEDICINES.map(medicine => `
+            <div class="action-card ${selectedMedicine === medicine.id ? 'selected' : ''}" onclick="selectMedicine('${medicine.id}')">
+              <div class="action-header">
+                <span class="action-name">💉 ${medicine.name}</span>
+              </div>
+              <div class="action-desc">${medicine.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+        <button class="btn btn-primary btn-full btn-lg" onclick="confirmDoctorMedicine()" ${!selectedMedicine ? 'disabled' : ''}>
+          Confirm Medicine
+        </button>
       </div>
     `;
   }
@@ -879,19 +900,21 @@ function renderNightPhase(current, alivePlayers) {
     ? 'You only see people currently around your area.'
     : 'No one nearby, so your search spread wider across the map.';
   const snooperIntel = state.mafiaSnooperIntel[current.id] || {};
+  const briefing = state.mafiaBriefing[current.id] || [];
 
   return `
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <span style="color:${ROLES.mafia.color}">${ROLES.mafia.icon}</span>
         <span>${current.name}</span>
-        <span style="color:#f87171;font-size:0.85rem">(Mafia)</span>
+        <span style="font-size:0.85rem;color:var(--text-secondary)">(Night strike)</span>
       </div>
 
-      <div class="section-label" style="color:#f87171">🎯 Choose your target</div>
+      <div class="section-label">🎯 Choose your target</div>
       <div class="mafia-intel">
-        <div class="mafia-intel-header">Mafia visibility</div>
-        <div style="font-size:0.9rem;color:#fecaca">${visionNote}</div>
+        <div class="mafia-intel-header">Night visibility</div>
+        <div style="font-size:0.9rem;color:var(--text-primary)">${visionNote}</div>
+        ${briefing.map(line => `<div style="font-size:0.82rem;color:var(--text-secondary);margin-top:4px">• ${line}</div>`).join('')}
       </div>
 
       ${targets.length > 0 ? `
@@ -924,8 +947,23 @@ function renderNightPhase(current, alivePlayers) {
       </div>
       `}
 
-      <button class="btn btn-danger btn-full btn-lg" onclick="confirmMafiaTarget()" ${!state.selectedTarget ? 'disabled' : ''}>
-        Confirm Target
+      <div class="section-label">Choose attack method:</div>
+      <div class="action-list">
+        ${KILL_METHODS.map(method => `
+          <div class="action-card ${state.selectedKillMethod === method.id ? 'selected' : ''}" onclick="selectKillMethod('${method.id}')">
+            <div class="action-header">
+              <span class="action-name">${method.name}</span>
+              <span class="exposure-chip" style="color:${getExposureColor(method.noise || 0)};border-color:${getExposureColor(method.noise || 0)}">
+                Noise ${getExposurePct(method.noise || 0)}%
+              </span>
+            </div>
+            <div class="action-desc">${method.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <button class="btn btn-primary btn-full btn-lg" onclick="confirmMafiaTarget()" ${(!state.selectedTarget || !state.selectedKillMethod) ? 'disabled' : ''}>
+        Confirm Night Strike
       </button>
     </div>
   `;
@@ -933,6 +971,7 @@ function renderNightPhase(current, alivePlayers) {
 
 function renderDoctorPhase(alivePlayers) {
   const doctor = alivePlayers.find(p => p.role === 'doctor' && !p.isBot);
+  const medicine = DOCTOR_MEDICINES.find(item => item.id === state.doctorMedicineLoadout);
 
   if (!doctor) {
     scheduleAutoAdvance(`doctor_auto_${state.dayNumber}`, 'skipDoctor');
@@ -962,7 +1001,10 @@ function renderDoctorPhase(alivePlayers) {
   return `
     <div class="card" style="border-color:#2563eb">
       <div class="section-label" style="color:#60a5fa">💉 Save one person from death tonight</div>
-      <p style="color:var(--text-secondary);margin-bottom:12px">Save chance is not guaranteed and drops when multiple attackers focus one target.</p>
+      <p style="color:var(--text-secondary);margin-bottom:6px">Save chance is not guaranteed and drops when multiple attackers focus one target.</p>
+      <p style="color:var(--text-secondary);margin-bottom:12px">
+        Prepared medicine: <strong>${medicine?.name || 'Trauma Kit (default)'}</strong>${medicine ? ` — ${medicine.desc}` : ''}
+      </p>
       <div class="target-grid">
         ${alivePlayers.map(p => `
           <button class="target-btn ${state.selectedSave === p.id ? 'selected' : ''}"
@@ -1022,6 +1064,7 @@ function renderDiscussionPhase(current) {
           ${myIntel.saw ? `<div class="intel-item" style="font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
           ${myIntel.nearby ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
           ${myIntel.tracked ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.tracked}</div>` : ''}
+          ${myIntel.cause ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.cause}</div>` : ''}
         </div>
       ` : ''}
 
@@ -1094,6 +1137,7 @@ function renderVotePhase(current, alivePlayers) {
         ${myIntel.heard ? `<div style="font-size:0.9rem">👂 ${myIntel.heard}</div>` : ''}
         ${myIntel.saw ? `<div style="font-size:0.9rem;font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
         ${myIntel.nearby ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
+        ${myIntel.cause ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.cause}</div>` : ''}
       </div>
 
       <div class="section-label">Vote to eliminate:</div>
@@ -1132,7 +1176,7 @@ function renderInstructionsModal() {
       <p><strong>Town wins:</strong> all Mafia eliminated.</p>
       <p style="margin-top:8px"><strong>Mafia wins:</strong> living Mafia are equal to or greater than living Town.</p>
       <p style="margin-top:12px"><strong>Roles:</strong></p>
-      <p style="color:var(--text-secondary)">Villager: gather intel and vote.</p>
+      <p style="color:var(--text-secondary)">${getRoleDisplayName('villager')}: gather intel and vote.</p>
       <p style="color:var(--text-secondary)">Mafia: coordinate kills secretly.</p>
       <p style="color:var(--text-secondary)">Doctor: try to save one target (not guaranteed).</p>
       <p style="color:var(--text-secondary)">Detective: stronger snoop intel, harder to notice.</p>
@@ -1143,15 +1187,15 @@ function renderInstructionsModal() {
       <h3 style="color:var(--purple-accent);margin-bottom:12px">🧩 This Version</h3>
       <div style="margin-bottom:16px">
         <h4 style="margin-bottom:4px">1) Day Planning</h4>
-        <p style="color:var(--text-secondary)">Pick a location, action, and (if available) door stance. Riskier plays usually produce better intel.</p>
+        <p style="color:var(--text-secondary)">Pick a location and action. Higher Exposure usually produces stronger clues, but raises danger.</p>
       </div>
       <div style="margin-bottom:16px">
         <h4 style="margin-bottom:4px">2) Night Resolution</h4>
-        <p style="color:var(--text-secondary)">Mafia picks a kill target from what they can see nearby. If no one is nearby, they search wider.</p>
+        <p style="color:var(--text-secondary)">Mafia picks a target and kill method based on nearby visibility. Doctors prep medicine at night, then pick who to save in the morning.</p>
       </div>
       <div style="margin-bottom:16px">
         <h4 style="margin-bottom:4px">3) Morning Intel</h4>
-        <p style="color:var(--text-secondary)">Everyone gets intel text, even if it is inconclusive. Detectives get stronger clues.</p>
+        <p style="color:var(--text-secondary)">Everyone gets intel text, even if inconclusive. Detectives stay alert and stealthy, so their clues are usually stronger.</p>
       </div>
       <div>
         <h4 style="margin-bottom:4px">4) Discussion Then Vote</h4>
@@ -1161,11 +1205,11 @@ function renderInstructionsModal() {
   } else {
     content = `
       <h3 style="color:var(--purple-accent);margin-bottom:12px">👥 Modes</h3>
-      <p><strong>Solo:</strong> one human player, all other seats are bots, and the game advances without pass prompts.</p>
-      <p style="margin-top:8px"><strong>Multiplayer single-device:</strong> everyone plays on one screen, passing privately for role reveal, planning, and voting.</p>
-      <p style="margin-top:8px"><strong>Multiplayer multi-device:</strong> each device joins the same room from the multiplayer lobby and syncs through one host.</p>
-      <p style="margin-top:8px"><strong>Discussion flow:</strong> use the chat area to compare clues first, then continue into voting when discussion ends.</p>
-      <p style="margin-top:8px"><strong>Bot chat:</strong> when enabled, bots can add short discussion lines during debate.</p>
+      <p><strong>Solo:</strong> one human player with bots. Use this to learn locations, exposure, and role flow.</p>
+      <p style="margin-top:8px"><strong>Multiplayer single-device:</strong> one shared screen with private handoff. After morning intel, everyone discusses before voting turns begin.</p>
+      <p style="margin-top:8px"><strong>Multiplayer multi-device:</strong> each device joins the same room. Discussion happens in shared chat before host advances voting.</p>
+      <p style="margin-top:8px"><strong>Discussion usage:</strong> compare location routes, nearby sightings, and cause-of-death clues before locking votes.</p>
+      <p style="margin-top:8px"><strong>Bot chat:</strong> when enabled, bots add short non-spoiler lines during debate.</p>
     `;
   }
 
@@ -1229,7 +1273,7 @@ function renderSettingsModal() {
         </div>
         <div class="settings-row" style="display:block">
           <div style="margin-bottom:8px">Bot Turn Pace: ${state.botDelayMs}ms</div>
-          <input type="range" min="500" max="2200" step="100" value="${state.botDelayMs}" oninput="setBotDelay(this.value)" style="width:100%"/>
+          <input type="range" min="700" max="2600" step="100" value="${state.botDelayMs}" oninput="setBotDelay(this.value)" style="width:100%"/>
         </div>
         <button class="btn btn-primary btn-full" style="margin-top:20px" onclick="hideSettings()">Done</button>
       </div>

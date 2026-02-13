@@ -6,7 +6,7 @@ This document is the source of truth for:
 - phase flow
 - gameplay functionality the in-game tutorial must explain
 
-Do not change core rules without approval.
+Do not change core win/role rules without approval.
 
 ## Win Conditions
 
@@ -15,170 +15,165 @@ Do not change core rules without approval.
 
 ## Roles
 
-### Villager
-- No special power.
-- Chooses location/action each day-night cycle.
-- Uses intel and discussion to vote.
+### Town (Story-Named Role)
+- Story-specific town names are used in UI:
+  - Blackwood Estate: `Guest`
+  - Midnight Express: `Passenger`
+  - Coral Bay Resort: `Survivor`
+  - Station Prometheus: `Crewmate`
+- Gathers clues and votes.
+- Does not get a guaranteed direct identity result; usually gets proximity/awareness clues unless they witness events.
 
 ### Mafia
 - Knows all Mafia teammates.
-- Cannot kill Mafia teammates.
-- At night, Mafia chooses kill targets and uses mafia-only planning options.
-- Mafia should clearly see that mafia choices are mafia-only.
+- Cannot target Mafia teammates.
+- During day planning, chooses location and mafia route action.
+- During night strike turn, chooses:
+  - target (based on map visibility)
+  - kill method (noise and treatment difficulty vary)
+- Receives tactical mafia-only knowledge (movement context + snooper sightings), not town-style intel cards.
 
 ### Doctor
-- Chooses one save target in the morning phase.
-- Saves are probabilistic (not guaranteed).
-- Multiple attackers should make a successful save less likely.
+- At night, chooses one medicine loadout to prepare.
+- In morning doctor phase, chooses one player to attempt to save.
+- Save chance is probabilistic and depends on:
+  - attack method difficulty
+  - medicine matchup
+  - number of attackers (multi-attacker focus sharply lowers save chance)
 
 ### Detective
-- Uses snooping/lingering style play (not "locked room" defensive behavior).
-- Better at gathering intel than villagers.
-- Lower chance of being noticed by Mafia while investigating.
+- Always alert, never "dozes off" into passive lock behavior.
+- Uses snoop/linger posture with stronger clue quality.
+- Has lower notice chance when Mafia scans for snoopers.
 
-## Round Structure
+## Geography + Exposure System
 
-### 1. Role Reveal
-- Each player privately sees their role.
-- Mafia also sees teammates.
-- In pass-and-play, prompts should say "Pass to [player name]" and avoid exposing role labels in pass text.
+### Unified Exposure
+- The game uses one unified percentage metric: `Exposure`.
+- Exposure replaces separate risk/intel presentation.
+- Higher Exposure generally means:
+  - higher chance to collect stronger clues
+  - higher chance to be noticed/implicated
+- Exposure visuals use a continuous green -> yellow -> red gradient.
 
-### 2. Day Planning
+### Map Graph
+- Each story uses a node/edge graph (see `scripts/geography_data.js`).
+- Graph data includes:
+  - nodes (bedroom zones, investigation zones, shared areas, transit, isolated spaces)
+  - weighted edges with sight/hearing characteristics
+- Night visibility and nearby witness logic use graph distance, not flat same-room checks.
+
+### Location Model
+- Locations are generated from story graph nodes.
+- Stories now have more than four locations and role-aware action sets.
+- Bedroom/sleep areas are shared geography zones (not "your bedroom" singleton copy).
+
+## Day And Night Flow
+
+## 1. Role Reveal
+- Each player privately sees role information.
+- Mafia sees teammates.
+- Pass-and-play prompts are neutral (`Pass to <name>`), with no role leak wording.
+
+## 2. Day Planning
 Each living player selects:
-- a location
-- a location-specific action
-- optional door stance when available (lock vs listen/open)
+- location
+- location action
+- optional action target (if action requires a person)
 
-Important behavior:
-- plans remain private during planning
-- locations/actions have clear risk and intel levels
-- higher risk generally increases potential intel
-- role identity influences available options and outcomes
+Important:
+- Snoop behavior is location-first (investigation zones), with target selection as the action choice.
+- Bedroom behavior is action-based (for example: sleep and lock, sleep unlocked, porch watch), not a separate lock prompt.
 
-### 3. Night Resolution
-- Mafia chooses kill target(s) from eligible non-Mafia players.
-- Mafia gets situational visibility based on who is around their active area.
-- If nobody is around a Mafia member, Mafia may infer broader location info due to active searching.
-- Snoopers/investigators should be sampled into a small set of observed room contexts (for example ~3 room contexts, ~5 for detectives), not omnipresent everywhere.
+## 3. Night Turns
+- Human night actors proceed in sequence:
+  - human Mafia (target + kill method)
+  - human Doctor (medicine loadout)
+- Bots auto-resolve their equivalent night decisions.
 
-### 4. Morning
-- Doctor save happens (if doctor alive/eligible).
-- Death or survival outcome is announced.
-- Intel is delivered to players.
-- "No intel" outcomes should still show a meaningful baseline message instead of blank sections.
+## 4. Morning Doctor
+- Doctor chooses who to save using prepared medicine.
+- Save resolution is probabilistic and method-sensitive.
 
-### 5. Discussion
-- Discussion always exists before voting in multiplayer and single-device pass-and-play.
-- Solo mode can keep discussion lightweight but should still present intel and transition clearly.
-- Multi-device mode should make chat prominent.
-- If a device has multiple players, chat messages must attribute sender identity.
-- If bot chat is enabled in settings, alive bots may add short non-spoiler discussion lines.
+## 5. Morning Announcement
+- Public outcome includes death/survival and cause/method details when applicable.
+- Narration is shown before discussion continues.
 
-### 6. Voting
-- Every living player votes.
-- Elimination result is announced.
-- Role of eliminated player is revealed.
-- New round begins unless game is over.
+## 6. Discussion
+- Discussion always occurs before voting in non-solo flows.
+- Single-device multiplayer: short timed discussion gate, then private vote turns.
+- Multi-device: shared chat discussion, then host advances to voting.
 
-## Intel And Risk System
+## 7. Vote
+- Every living voter submits one vote.
+- Vote result announces elimination or tie.
+- Vote tally counts are displayed.
 
-### Core Principle
-Higher risk should generally yield higher potential intel.
+## Intel Output Requirements
 
-### Inputs To Risk
-- location base risk
-- action risk
-- door stance (lock/listen)
-- role modifiers (especially detective stealth advantage)
-
-### Inputs To Intel
-- action intel value
-- proximity to events
-- role modifiers (detective bonus)
-- whether player was actively snooping/lingering
-
-### Intel Output Requirements
-- Every player should receive a result payload each morning:
-  - direct observations when successful
-  - nearby presence clues when applicable
-  - explicit "nothing conclusive" or equivalent fallback when nothing was detected
-- Mafia night view should include contextual target details (location/action) when visible.
-
-## Location And Action Design
-
-- Actions are location-specific and should not feel generic across all places.
-- Each setting should include low/medium/high risk options.
-- Example action families:
-  - snoop/search/follow
-  - smoke/linger in exposed areas
-  - hide/lock up for safety
-  - listen through door for risky intel
-- Mafia should also have distinct planning actions separate from town actions.
+- Every non-Mafia player receives a morning intel payload (never blank).
+- If nothing strong is found, intel text is explicitly inconclusive (not empty).
+- Locked/sleep outcomes still produce meaningful text.
+- Nearby kill witnesses get meaningful evidence cues.
+- Detectives more often get clearer identity/movement clues.
 
 ## Modes
 
-### Solo (Human + Bots)
-- One human player, all other seats are bots.
-- Use this for quick practice rounds and rule learning.
-- Discussion stays lightweight, then transitions to voting.
-- Bot turns should be paced so decisions remain readable.
+### Solo
+- One human player plus bots.
+- Faster flow, but still includes intel -> discussion/vote transition.
 
 ### Multiplayer Single-Device
-- All players use one device with private handoff between turns.
-- Use it when everyone is in the same room and sharing one screen.
-- Discussion still happens before voting so players can compare clues.
-- No room link or join flow is needed in this mode.
+- One shared device, private pass flow for private turns.
+- No join-link/join-code sharing UI in this mode.
+- Requires at least 2 total players.
 
 ### Multiplayer Multi-Device
-- Players connect through the multiplayer lobby using a shared room code and relay URL.
-- Use this when players are on separate devices.
-- During discussion, chat is the main coordination area before voting starts.
-- After discussion, each player continues into voting on their own device flow.
-- Connected-device presence should only be shown when more than one device is active.
+- Devices connect to a shared room/relay.
+- Discussion uses shared chat.
+- Chat is visible in-corner during play when more than one device is connected.
+- Device turn banner indicates active device.
+- Host can reorder connected device order.
+- Requires at least 2 total players.
 
-## Presets And Role Scaling
+## Presets
 
-- Presets should be meaningfully distinct (avoid near-duplicates).
-- Default preset target for 12 players is mafia-heavy with support roles (5 Mafia, 3 Doctors, 2 Detectives, 2 Villagers), while still scaling safely for smaller groups.
-- Preset math must not break small lobbies.
+Role presets must be meaningfully different in actual playstyle:
+- `Classic`: mafia-heavy baseline with support roles.
+- `Blood Moon`: very high mafia pressure, minimal support.
+- `Aftershock`: volatile but not pure mafia stack.
+- `Forensics`: detective-heavy information game.
 
-## Narration Requirements
+Classic default target at 12 players remains:
+- 5 Mafia / 3 Doctors / 2 Detectives / 2 Town
 
-Two supported narration styles:
-- Human narrator support mode:
-  - can view broad game flow
-  - cannot see secret-role data that would spoil the game
-  - gets a mood-setting turn at the beginning of each phase
-  - single-device narration is delivered verbally (one shared cue, not per-player custom text)
-  - multi-device narration is delivered through chat-style phase prompts
-  - should include a recent phase-safe narration feed for moderation
-- Automated narrator mode:
-  - configurable style presets
-  - phase-by-phase atmospheric summaries and prompts
+Small-lobby scaling must remain safe and non-breaking.
 
-Narrator prompts should be phase-level and non-personalized so role differences are not leaked.
+## Narration System
 
-## Atmosphere Toggles
+Two narrator styles:
 
-- Sound effects toggle should gate gameplay audio cues (death, win, loss, interaction).
-- Death animations toggle should control whether elimination animation cards appear in announcement modals.
+### Human Narrator Mode
+- Gets one phase-level cue each phase.
+- Cues are non-spoiler and non-personalized.
+- Single-device: delivered verbally.
+- Multi-device: delivered via chat-style prompt.
+- Includes a phase-safe narration feed panel.
 
-## In-Game Tutorial Requirements
+### Auto Narrator Mode
+- Uses story packs and phase templates.
+- Includes heavier backstory intro and phase atmosphere lines.
+- Story narration preset data is defined in `scripts/narration_data.js`.
 
-The tutorial should explicitly cover:
+## In-Game Tutorial Coverage (Required)
+
+Tutorial content must explicitly cover:
 1. Win conditions.
 2. Role responsibilities.
-3. Day planning (location, action, risk/intel, door choices).
-4. Night behavior by role (Mafia/Doctor/Detective/Villager).
-5. Morning intel interpretation.
+3. Exposure-driven day planning (location/action/target).
+4. Night turns by role (Mafia strike method, Doctor medicine, Detective posture).
+5. Morning intel interpretation (including inconclusive outcomes).
 6. Discussion and voting flow.
-7. Mode differences (solo, pass-and-play, multi-device).
-8. Chat attribution rules for multi-player devices.
-9. Narration options and intended use.
-
-## Design Notes (No Rule Change)
-
-Current rule set is strong on social deduction and risk/reward. The main quality risk is complexity overload for new players. To keep your rules intact while improving usability:
-- make role-specific options visually obvious
-- keep intel phrasing simple and consistent
-- ensure tutorial and phase prompts mirror each other exactly
+7. Single-device vs multi-device mode behavior.
+8. Multi-device chat and sender attribution usage.
+9. Narrator mode behavior and expectations.

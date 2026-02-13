@@ -219,3 +219,24 @@ Copy this for new sessions:
 ### Notes
 [Any observations]
 ```
+
+## Session 7: Coding-First Sanity Checks (2026-02-13)
+
+**Tester:** Codex
+**Method:** Repeatable sanity script (`scripts/run_quick_checks.sh`) + direct `node --check`, no full browser regression yet
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| `node --check scripts/game.js` | PASS | Syntax valid after geography/exposure/night overhaul. |
+| `node --check scripts/render.js` | PASS | Syntax valid after UI flow updates (exposure, night method/medicine, device ordering controls). |
+| `node --check scripts/geography_data.js` | PASS | Map graph data file syntax valid. |
+| `node --check scripts/narration_data.js` | PASS | Narration preset data file syntax valid. |
+| Localhost smoke (`curl -I http://localhost:8000`) | PASS | `scripts/run_quick_checks.sh` started temporary server and returned HTTP 200 headers. |
+| Architecture split audit (`rg \"<[a-zA-Z]\" scripts/game.js scripts/render.js`) | PASS | UI/template markup remains in `scripts/render.js`; `scripts/game.js` stayed logic-only. |
+
+### Bugs Found
+- None from static checks.
+
+### Notes
+- Full Playwright/browser validation intentionally deferred in this session to follow coding-first instruction before exhaustive testing.

@@ -117,3 +117,48 @@ Original prompt: Build and polish this multiplayer-capable mafia web game withou
   - JS syntax checks pass (`node --check scripts/game.js`, `node --check scripts/render.js`).
   - Playwright MCP currently blocked by environment connectivity (`ERR_CONNECTION_REFUSED` to localhost and unstable browser-context closure states).
   - Added Session 6 in `TESTING_LOG.md` documenting exact blocker and fallback attempts.
+
+## 2026-02-13 - Geography + exposure + night-system overhaul (coding-first)
+- Implemented new map/data layers:
+  - added `scripts/geography_data.js` with node/edge graphs for all four settings (distance/sight/hearing edge metadata).
+  - added `scripts/narration_data.js` with story backstory packs and phase narration templates.
+  - wired both into `index.html` ahead of `game.js`.
+- Reworked gameplay model around unified Exposure:
+  - converted location/action generation to graph-driven locations with `exposure` percentages.
+  - replaced risk/intel split presentation with Exposure-based values and gradient rendering.
+  - expanded each setting to map-driven multi-location sets (beyond 4 locations).
+- Reworked day/night systems:
+  - snooping is now location-first (investigation zones + target action).
+  - bedroom behavior now uses action set (`sleep and lock`, `sleep without locking`, `porch watch`) with shared bedroom zones.
+  - removed old door-option prompt flow.
+  - removed broken `coordinate strike` mafia action path.
+  - mafia actions now location-based and less visually over-signaled.
+- Implemented night strike + medicine interaction:
+  - mafia chooses target + kill method (`Silent Blade`, `Stranglehold`, `Toxin Dose`, `Incendiary Burst`).
+  - doctors choose a night medicine loadout, then morning save target.
+  - save odds now depend on attack method, medicine matchup, and attacker count.
+  - morning announcements include cause-of-death/method context.
+- Implemented graph-based witness/intel behavior:
+  - mafia target visibility uses graph distance (nearby-first, search fallback).
+  - nearby witness logic now distance-based and noise-aware.
+  - detectives keep stealth advantage and stronger clue output.
+  - inconclusive fallback text guaranteed (including locked/sleep outcomes).
+  - mafia tactical feed now includes snooper-room intelligence summaries.
+- Multiplayer flow additions:
+  - added device-order state and host-side device reorder controls in multi-device lobby.
+  - synced device order in realtime snapshots and kept active-device banner behavior.
+- Preset/copy/UX updates:
+  - presets differentiated (`Classic`, `Blood Moon`, `Aftershock`, `Forensics`).
+  - detective helper copy changed to always-alert semantics.
+  - removed circular `?` icon treatment and toned down mafia-specific red emphasis.
+  - increased default bot pacing (`botDelayMs` now 1200ms; slider range 700-2600ms).
+- Documentation updates in this slice:
+  - rewrote `INSTRUCTIONS.md` to match implemented exposure/geography/night method+medicine flow.
+  - expanded `AGENTS.md` with new data files and localhost + local Playwright method notes.
+  - updated `TODOS.md` status flags (many items moved to `🔧 Fixed | [ ] Tested`).
+
+Pending after this coding-first slice:
+- full Playwright regression pass and TESTING_LOG updates (deferred intentionally per user instruction to finish coding first).
+- Added repeatable sanity script `scripts/run_quick_checks.sh` and ran it successfully (syntax + localhost smoke).
+- Re-ran architecture boundary audit (`rg "<[a-zA-Z]" scripts/game.js scripts/render.js`) and confirmed markup remains in `render.js`.
+- Added multiplayer connection guide copy in lobby (local-network vs file-mode vs internet relay guidance) to reduce localhost-only dead-end confusion.
