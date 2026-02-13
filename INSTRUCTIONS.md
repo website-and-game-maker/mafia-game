@@ -72,6 +72,7 @@ Important behavior:
 - Solo mode can keep discussion lightweight but should still present intel and transition clearly.
 - Multi-device mode should make chat prominent.
 - If a device has multiple players, chat messages must attribute sender identity.
+- If bot chat is enabled in settings, alive bots may add short non-spoiler discussion lines.
 
 ### 6. Voting
 - Every living player votes.
@@ -143,9 +144,15 @@ Two supported narration styles:
 - Human narrator support mode:
   - can view broad game flow
   - cannot see secret-role data that would spoil the game
+  - should include a recent phase-safe narration feed for moderation
 - Automated narrator mode:
   - configurable style presets
   - phase-by-phase atmospheric summaries and prompts
+
+## Atmosphere Toggles
+
+- Sound effects toggle should gate gameplay audio cues (death, win, loss, interaction).
+- Death animations toggle should control whether elimination animation cards appear in announcement modals.
 
 ## In-Game Tutorial Requirements
 

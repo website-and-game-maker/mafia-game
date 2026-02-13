@@ -307,6 +307,7 @@ function renderGame() {
     content = `
       <div class="modal-overlay">
         <div class="modal-content">
+          ${renderDeathAnimationCard()}
           <div class="modal-text">${state.announcement}</div>
           <button class="btn btn-danger btn-lg" onclick="${state.gamePhase === 'announcement' ? 'afterAnnouncement' : 'afterVoteAnnouncement'}()">Continue</button>
         </div>
@@ -422,11 +423,25 @@ function renderGame() {
   `;
 }
 
+function renderDeathAnimationCard() {
+  if (!state.settings.deathAnimations || !state.deathAnimation) return '';
+
+  const phaseLabel = state.deathAnimation.phase === 'vote' ? 'the vote' : 'the night';
+  return `
+    <div class="death-animation-card" data-death-animation="${state.deathAnimation.id}">
+      <div class="death-animation-icon">💀</div>
+      <div class="death-animation-title">${state.deathAnimation.victimName} was lost during ${phaseLabel}.</div>
+      <div class="death-animation-subtitle">Role revealed: ${state.deathAnimation.roleName}</div>
+    </div>
+  `;
+}
+
 function renderNarratorConsole(allPlayers, alivePlayers) {
   const aliveCount = alivePlayers.length;
   const deadCount = allPlayers.length - aliveCount;
   const plannedCount = Object.keys(state.nightPlans || {}).length;
   const votesCast = Object.keys(state.votes || {}).length;
+  const recentNarration = (state.narrationLog || []).slice(-4).reverse();
 
   return `
     <div class="card narrator-panel">
@@ -438,6 +453,16 @@ function renderNarratorConsole(allPlayers, alivePlayers) {
         <div><strong>Dead:</strong> ${deadCount}</div>
         <div><strong>Plans Locked:</strong> ${plannedCount}</div>
         <div><strong>Votes Cast:</strong> ${votesCast}</div>
+      </div>
+      <div class="narrator-feed">
+        ${recentNarration.length === 0 ? `
+          <div class="narrator-feed-item">No narrator updates yet.</div>
+        ` : recentNarration.map(item => `
+          <div class="narrator-feed-item">
+            <span class="narrator-feed-phase">Day ${item.day} • ${item.phase.replace('_', ' ')}</span>
+            <span>${item.text}</span>
+          </div>
+        `).join('')}
       </div>
       <div class="narrator-note">
         This panel is safe for moderation: it avoids role identities and team secrets.
@@ -811,6 +836,7 @@ function renderDiscussionPhase(current) {
     nearby: null
   };
   const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
+  const chatIsProminent = aliveHumans.length > 1 || state.players.length > 1;
 
   return `
     <div class="card">
@@ -829,7 +855,7 @@ function renderDiscussionPhase(current) {
         ${myIntel.tracked ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.tracked}</div>` : ''}
       </div>
 
-      <div class="chat-panel ${aliveHumans.length > 1 ? 'chat-panel-prominent' : ''}">
+      <div class="chat-panel ${chatIsProminent ? 'chat-panel-prominent' : ''}">
         <div class="chat-header">🗨️ Discussion Chat</div>
         ${aliveHumans.length > 1 ? `
           <div class="chat-senders">
@@ -842,7 +868,7 @@ function renderDiscussionPhase(current) {
         ` : ''}
         <div class="chat-messages">
           ${dayMessages.length === 0 ? '<div style="color:var(--text-secondary);font-size:0.9rem">No messages yet this round.</div>' : dayMessages.map(message => `
-            <div class="chat-message">
+            <div class="chat-message ${message.senderId?.startsWith('bot') ? 'chat-message-bot' : ''}">
               <span class="chat-author">${message.senderName}:</span> ${message.text}
             </div>
           `).join('')}
@@ -998,6 +1024,7 @@ function renderInstructionsModal() {
       <p><strong>Solo:</strong> no pass prompts, bot turns auto-advance with readable pacing.</p>
       <p style="margin-top:8px"><strong>Pass-and-Play:</strong> prompts say "Pass to [name]" for private turns.</p>
       <p style="margin-top:8px"><strong>Discussion chat:</strong> if multiple players share one device, messages show sender names.</p>
+      <p style="margin-top:8px"><strong>Bot chat:</strong> when enabled, bots can add short discussion lines during debate.</p>
       <p style="margin-top:8px"><strong>Multi-device:</strong> lobby/chat/sync support is designed to stay compatible with this same phase flow.</p>
     `;
   }

@@ -37,3 +37,22 @@ Original prompt: Build and polish this multiplayer-capable mafia web game withou
   - detective stealth simulation shows lower detection rate than villager snoopers
 - Logged Playwright regression session to `TESTING_LOG.md` (Session 2) with pass/fail detail and one fixed bug.
 - Updated `TODOS.md` statuses based on validated behavior.
+
+## 2026-02-13 - Narration + atmosphere implementation pass
+- Implemented runtime bot discussion chat behavior (setting-gated) in `scripts/game.js`:
+  - bot lines now queue at discussion start and may reply after human messages
+  - bot discussion timers are cleaned up on phase/mode transitions
+- Implemented visible death animation wiring (setting-gated):
+  - `state.deathAnimation` now set on fatal night/vote eliminations
+  - announcement/vote modals now render animated victim card when enabled
+  - animations clear safely when disabled or leaving announcement phases
+- Added robust narrator feed support:
+  - `state.narrationLog` captures recent phase-safe narration updates
+  - human narrator console now renders a recent feed with day/phase context
+- Updated docs:
+  - `INSTRUCTIONS.md` now includes bot-chat behavior, narrator feed expectation, and atmosphere toggle requirements
+  - `TODOS.md` updated to mark narration/bot chat/sound/death animation items fixed+tested
+  - `TESTING_LOG.md` Session 3 added with Playwright evidence for this slice
+- Playwright notes:
+  - intermittent MCP Chrome profile lock was observed; workaround used (quit/relaunch Chrome) and tests completed successfully.
+  - verified chat prominence class and sender attribution selection behavior in discussion (`chat-panel-prominent`, `setChatSender` + `sendDiscussionMessage`).

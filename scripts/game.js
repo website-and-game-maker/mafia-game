@@ -385,6 +385,10 @@ const state = {
   chatMessages: [],
   chatDraft: '',
   chatSenderId: null,
+  narrationLog: [],
+  lastBotChatDay: null,
+  botChatTimerIds: [],
+  deathAnimation: null,
   winner: null,
   winReason: null,
   finalDeath: null,
@@ -457,6 +461,123 @@ function getNextAliveHumanIndex(startIndex) {
 
 function withBotDelay(callback, delay = state.botDelayMs) {
   setTimeout(callback, delay);
+}
+
+function randomChoice(items) {
+  if (!items || items.length === 0) return null;
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function addNarrationLog(text, phase = state.gamePhase) {
+  if (!text) return;
+  state.narrationLog.push({
+    id: `nar_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    day: state.dayNumber,
+    phase,
+    text,
+    at: new Date().toISOString()
+  });
+  if (state.narrationLog.length > 10) {
+    state.narrationLog = state.narrationLog.slice(-10);
+  }
+}
+
+function clearBotChatTimers() {
+  state.botChatTimerIds.forEach(timerId => clearTimeout(timerId));
+  state.botChatTimerIds = [];
+}
+
+function setDeathAnimation(victimName, roleName, phase) {
+  if (!state.settings.deathAnimations || !victimName) {
+    state.deathAnimation = null;
+    return;
+  }
+  state.deathAnimation = {
+    id: `death_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    victimName,
+    roleName,
+    phase
+  };
+}
+
+function clearDeathAnimation() {
+  state.deathAnimation = null;
+}
+
+function buildBotDiscussionLine(bot, alivePlayers, triggerText = '') {
+  const others = alivePlayers.filter(player => player.id !== bot.id);
+  const suspects = samplePlayers(others, 2);
+  const lead = suspects[0];
+  const fallback = suspects[1] || lead;
+  const plan = state.nightPlans[bot.id];
+  const intel = state.intelResults[bot.id];
+  const triggerEcho = triggerText.trim().slice(0, 40);
+
+  const lines = [
+    lead ? `I heard movement around ${lead.name}'s area.` : 'I heard footsteps but could not confirm who it was.',
+    plan?.locationName ? `I was around ${plan.locationName}. Something felt wrong there.` : 'My route was quiet, but someone still made a move.',
+    lead && fallback ? `Let's compare ${lead.name} and ${fallback.name}. Their stories do not line up.` : 'No hard proof yet. Compare timelines before voting.',
+    intel?.heard ? `${intel.heard}` : 'I do not have proof, but we should pressure contradictions.',
+    triggerEcho ? `On that point ("${triggerEcho}"), we should question who was nearby.` : 'Who had opportunity last night? Start there.'
+  ].filter(Boolean);
+
+  return randomChoice(lines) || 'I am still sorting clues. Keep sharing intel.';
+}
+
+function queueBotDiscussion(initial = false, triggerText = '') {
+  if (state.gamePhase !== 'discussion') return;
+  if (!state.settings.botChat) return;
+
+  const alivePlayers = getAlivePlayers();
+  const aliveBots = alivePlayers.filter(player => player.isBot);
+  if (aliveBots.length === 0) return;
+
+  if (initial) {
+    if (state.lastBotChatDay === state.dayNumber) return;
+    state.lastBotChatDay = state.dayNumber;
+    clearBotChatTimers();
+
+    const queuedDay = state.dayNumber;
+    const speakers = samplePlayers(aliveBots, Math.min(2, aliveBots.length));
+    speakers.forEach((bot, index) => {
+      const delay = Math.max(500, Math.round(state.botDelayMs * (0.9 + index * 0.4)));
+      const timerId = setTimeout(() => {
+        state.botChatTimerIds = state.botChatTimerIds.filter(id => id !== timerId);
+        if (state.gamePhase !== 'discussion' || state.dayNumber !== queuedDay) return;
+        state.chatMessages.push({
+          id: `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+          day: state.dayNumber,
+          senderId: bot.id,
+          senderName: bot.name,
+          text: buildBotDiscussionLine(bot, getAlivePlayers()),
+          at: new Date().toISOString()
+        });
+        render();
+      }, delay);
+      state.botChatTimerIds.push(timerId);
+    });
+    return;
+  }
+
+  if (Math.random() > 0.55) return;
+  const bot = randomChoice(aliveBots);
+  if (!bot) return;
+
+  const delay = Math.max(450, Math.round(state.botDelayMs * (0.8 + Math.random() * 0.45)));
+  const timerId = setTimeout(() => {
+    state.botChatTimerIds = state.botChatTimerIds.filter(id => id !== timerId);
+    if (state.gamePhase !== 'discussion') return;
+    state.chatMessages.push({
+      id: `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      day: state.dayNumber,
+      senderId: bot.id,
+      senderName: bot.name,
+      text: buildBotDiscussionLine(bot, getAlivePlayers(), triggerText),
+      at: new Date().toISOString()
+    });
+    render();
+  }, delay);
+  state.botChatTimerIds.push(timerId);
 }
 
 function scheduleAutoAdvance(key, handlerName, delay = state.botDelayMs) {
@@ -879,6 +1000,8 @@ function beginNightPhase() {
   state.selectedTarget = null;
   state.selectedSave = null;
   state.narrative = buildNarration('night');
+  addNarrationLog(state.narrative, 'night');
+  clearBotChatTimers();
   prepareNightContext();
 
   const allPlayers = getAllPlayers();
@@ -938,10 +1061,15 @@ function startGame() {
   state.chatMessages = [];
   state.chatDraft = '';
   state.chatSenderId = null;
+  state.narrationLog = [];
+  state.lastBotChatDay = null;
+  clearBotChatTimers();
+  clearDeathAnimation();
   state.winner = null;
   state.winReason = null;
   state.finalDeath = null;
   clearAutoAdvance();
+  addNarrationLog(state.narrative, 'reveal');
 
   const allPlayers2 = getAllPlayers();
   let firstHuman = allPlayers2.findIndex(p => !p.isBot);
@@ -1116,6 +1244,7 @@ function processNight() {
 
   state.intelResults = newIntel;
   state.narrative = buildNarration('morning', { attackHappened: Boolean(targetId) });
+  addNarrationLog(state.narrative, 'morning_doctor');
   state.gamePhase = 'morning_doctor';
   state.showRole = false;
   state.selectedSave = null;
@@ -1159,6 +1288,7 @@ function processMorning() {
       role: ROLES[target.role].name,
       saved: false
     };
+    setDeathAnimation(target.name, ROLES[target.role].name, 'night');
   } else if (target && savedByDoctor) {
     deathMessage = `${target.name} was attacked but survived.\n\nThe doctor saved them against the odds.`;
     state.finalDeath = {
@@ -1167,10 +1297,13 @@ function processMorning() {
       role: ROLES[target.role].name,
       saved: true
     };
+    clearDeathAnimation();
   } else {
     deathMessage = 'The night passed peacefully.';
     state.finalDeath = { type: 'night', victim: null, role: null, saved: false };
+    clearDeathAnimation();
   }
+  addNarrationLog(deathMessage, 'announcement');
 
   state.nightTarget = null;
   state.mafiaVotes = {};
@@ -1186,12 +1319,15 @@ function processMorning() {
 
 function afterAnnouncement() {
   state.announcement = null;
+  clearDeathAnimation();
   state.gamePhase = 'discussion';
   const firstHuman = findFirstAliveHumanIndex();
   state.currentPlayerIndex = firstHuman !== -1 ? firstHuman : 0;
   state.showRole = false;
   state.chatDraft = '';
   state.chatSenderId = getAllPlayers()[state.currentPlayerIndex]?.id || null;
+  addNarrationLog('Discussion opens. Compare intel before voting.', 'discussion');
+  queueBotDiscussion(true);
 
   render();
 }
@@ -1226,11 +1362,14 @@ function processVote() {
         role: ROLES[eliminated.role].name,
         saved: false
       };
+      setDeathAnimation(eliminated.name, ROLES[eliminated.role].name, 'vote');
     }
   } else {
     voteMessage = 'Vote tied. No one eliminated.';
     state.finalDeath = { type: 'vote', victim: null, role: null, saved: false };
+    clearDeathAnimation();
   }
+  addNarrationLog(voteMessage, 'vote_announcement');
 
   state.votes = {};
   state.nightPlans = {};
@@ -1248,6 +1387,8 @@ function processVote() {
 
 function afterVoteAnnouncement() {
   state.announcement = null;
+  clearDeathAnimation();
+  clearBotChatTimers();
   state.gamePhase = 'day';
   state.dayNumber++;
   state.currentPlayerIndex = 0;
@@ -1325,12 +1466,16 @@ function checkWin() {
 
 window.goToSetup = () => {
   clearAutoAdvance();
+  clearBotChatTimers();
+  clearDeathAnimation();
   state.screen = 'setup';
   state.bots = [];
   state.players = [];
   state.chatMessages = [];
   state.chatDraft = '';
   state.chatSenderId = null;
+  state.narrationLog = [];
+  state.lastBotChatDay = null;
   render();
 };
 
@@ -1373,6 +1518,12 @@ window.hideSettings = () => {
 
 window.toggleSetting = (key) => {
   state.settings[key] = !state.settings[key];
+  if (key === 'botChat' && !state.settings.botChat) {
+    clearBotChatTimers();
+  }
+  if (key === 'deathAnimations' && !state.settings.deathAnimations) {
+    clearDeathAnimation();
+  }
   render();
 };
 
@@ -1444,6 +1595,8 @@ window.startGame = startGame;
 
 window.newGame = () => {
   clearAutoAdvance();
+  clearBotChatTimers();
+  clearDeathAnimation();
   state.screen = 'setup';
   state.players = [];
   state.bots = [];
@@ -1462,6 +1615,8 @@ window.newGame = () => {
   state.chatMessages = [];
   state.chatDraft = '';
   state.chatSenderId = null;
+  state.narrationLog = [];
+  state.lastBotChatDay = null;
   render();
 };
 
@@ -1644,10 +1799,12 @@ function isSoloDiscussionComplete() {
 }
 
 window.proceedToVote = () => {
+  clearBotChatTimers();
   state.gamePhase = 'vote';
   state.currentPlayerIndex = 0;
   state.showRole = false;
   state.narrative = buildNarration('vote');
+  addNarrationLog(state.narrative, 'vote');
   state.chatSenderId = null;
   state.chatDraft = '';
   const firstHuman = findFirstAliveHumanIndex();
@@ -1684,6 +1841,7 @@ window.sendDiscussionMessage = () => {
     at: new Date().toISOString()
   });
   state.chatDraft = '';
+  queueBotDiscussion(false, text);
   render();
 };
 

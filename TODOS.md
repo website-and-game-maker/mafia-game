@@ -44,18 +44,18 @@ Status format per item:
 ## P3 Multiplayer And Cross-Device
 
 - [ ] Fixed | [ ] Tested - Multi-device lobby and device list (hide device list when only one device is present).
-- [ ] Fixed | [ ] Tested - Make chat prominent in multi-device discussion.
-- [ ] Fixed | [ ] Tested - Message attribution when one device has multiple players.
+- [x] Fixed | [x] Tested - Make chat prominent in multi-device discussion.
+- [x] Fixed | [x] Tested - Message attribution when one device has multiple players.
 - [ ] Fixed | [ ] Tested - WebSocket real-time support (currently pass-and-play oriented).
 
 ## P4 Narration, Atmosphere, And Polish
 
-- [x] Fixed | [ ] Tested - Robust narration system:
+- [x] Fixed | [x] Tested - Robust narration system:
   - human narrator mode with broad visibility but no secret-role spoilers
   - automated narrator mode with tone presets
-- [ ] Fixed | [ ] Tested - Bot chat lines during discussion.
-- 🔧 [x] Fixed | [ ] Tested - Wire settings toggle to real sound effects in gameplay.
-- [ ] Fixed | [ ] Tested - Wire settings toggle to visible death animations.
+- [x] Fixed | [x] Tested - Bot chat lines during discussion.
+- [x] Fixed | [x] Tested - Wire settings toggle to real sound effects in gameplay.
+- [x] Fixed | [x] Tested - Wire settings toggle to visible death animations.
 - [x] Fixed | [x] Tested - Favicon 404 suppression.
 
 ## P5 Project Hygiene

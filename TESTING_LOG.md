@@ -55,6 +55,33 @@ This file tracks testing sessions. AI and humans add test results here.
 
 ---
 
+## Session 3: Narration + Atmosphere Feature Regression (2026-02-13)
+
+**Tester:** Codex
+**Method:** Playwright MCP (`http://localhost:8000`) with targeted `page.evaluate` scenario setup
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Bot discussion lines (enabled) | PASS | `queueBotDiscussion(true)` generated bot-authored chat lines in discussion. |
+| Bot discussion lines (disabled) | PASS | With `settings.botChat = false`, no bot chat messages were generated. |
+| Discussion chat rendering for bot lines | PASS | Bot messages displayed in chat with sender attribution and bot-specific styling class. |
+| Discussion chat prominence trigger | PASS | Chat panel receives prominent styling class when multiple human senders are present. |
+| Sender attribution selection | PASS | Selecting a sender posts message under that selected player identity (`senderName`/`senderId` match). |
+| Death animation card (enabled) | PASS | Announcement modal showed animated death card with victim and revealed role. |
+| Death animation card (disabled) | PASS | No death animation state/card persisted when `settings.deathAnimations = false`. |
+| Human narrator console feed | PASS | Narrator console displayed recent non-spoiler narration entries with phase/day context. |
+| Sound effects toggle runtime gating | PASS | `SoundEffects.playDeath()` skipped init path when sounds disabled, ran init path when enabled (`whenOff=0`, `whenOn=1`). |
+| Runtime console health | PASS | No Playwright console errors in this session. |
+
+### Bugs Found
+- None in this slice.
+
+### Notes
+- Playwright MCP had intermittent Chrome profile lock startup failures (`Opening in existing browser session`); session continued with local app quit/relaunch workaround and tests completed.
+
+---
+
 ## Test Checklist
 
 Use this for browser testing sessions.
