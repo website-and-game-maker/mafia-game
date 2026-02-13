@@ -1,65 +1,64 @@
 # TODO List
 
-**This list is in priority order.** Add new items where they belong, not always at the end.
+Prioritize high-impact gameplay blockers first.
+
+Status format per item:
+- `Fixed` checkbox = implemented in code
+- `Tested` checkbox = verified in browser/Playwright
+- `🔧` = fixed in code but not yet tested
 
 ---
 
-## Bugs to Fix
+## P0 Critical Gameplay Gaps
 
-- [ ] **Confusing "Total" display** - Shows "Total: 5/6" when all 6 roles are assigned. Either show actual total or rename to "Special Roles"
-- [ ] **Missing favicon** - Add `<link rel="icon" href="data:,">` to suppress 404
+- [x] Fixed | [x] Tested - Night intel can be empty; always show a meaningful fallback in "Your intel".
+- [x] Fixed | [x] Tested - Mafia visibility model: show nearby people/actions first; only broaden view when no one is nearby.
+- [x] Fixed | [x] Tested - Snoop model should target a small set of rooms/people (roughly 3 contexts, 5 for detectives), not omniscient visibility.
+- [x] Fixed | [x] Tested - Detective stealth should reduce chance of being noticed by Mafia.
+- [x] Fixed | [x] Tested - Doctor saves should be probabilistic and reduced by multiple attackers.
+- [x] Fixed | [x] Tested - Pass-and-play prompts should never reveal role labels ("Pass to <name>" only).
+- [x] Fixed | [x] Tested - Ensure discussion phase exists before voting for all non-solo games.
+- [x] Fixed | [x] Tested - Validate and message role balance safety (including mafia pressure warning/blocking behavior before start).
 
-## Gameplay Improvements
+## P1 Core Gameplay And Balance
 
-- [ ] **Solo mode UX** - Don't bother with "reveal my role" button or "[player name]'s turn" text. It's one player, make it feel different.
-- [ ] **Better role scaling** - 1 doctor/detective for 12 players is unbalanced. Scale roles with player count:
-  - Classic: More doctors than detectives
-  - Brutal: More detectives than doctors
-  - Chaos: Very few doctors
-- [ ] **Rework Mystery and Chaos presets** - Current ones aren't great
-- [ ] **Deselect preset when customizing** - If you manually adjust roles, clear the preset selection
+- [x] Fixed | [x] Tested - Better role scaling implemented, with validation against desired default balance curve.
+- [x] Fixed | [x] Tested - Default preset balancing target: 12 players should trend toward 5 Mafia, 3 Doctors, 2 Detectives, with safe fallback for smaller groups.
+- [x] Fixed | [x] Tested - Rework presets so Brutal/Chaos/Mystery are clearly distinct and intentional.
+- [x] Fixed | [x] Tested - Add clearer mafia-only planning options and labeling.
+- [x] Fixed | [x] Tested - Ensure snooping actions can target specific people/rooms.
+- [x] Fixed | [x] Tested - Expand location-specific actions by risk tier (not generic action pools).
+- [x] Fixed | [x] Tested - Lock vs listen mechanics restored; verify risk/intel effect in play.
+- [x] Fixed | [x] Tested - Risk/intel badges improved; verify percentages + color clarity end-to-end.
 
-## Intel & Risk System
+## P2 Turn Flow And UX
 
-- [ ] **Mafia sees details** - What a person is doing should also be visible to the mafia and the people.
-- [ ] **Mafia only seen nearby people** - Only people near the mafia should be visible to them with their location in action. So you should have a floor plan and all.
-- [ ] **Risk/Intel display** - Show percentages with color gradient (green=low risk, yellow=medium, red=high)
-- [ ] **Location-based actions** - Actions should vary by location risk level, not be genericExamples from user:
-  - "hunt station" - actively searching for threats
-  - "create distraction" - draw attention away
-  - "lock pod" - secure yourself but get less intel
-  - "listen through door" - risky but more intel
-  - Sitting/smoking = very high risk
-  - Following someone suspicious = high risk, high intel
-- [ ] **Bring back lock/listen options** - "Lock pod" vs "listen through door" mechanics got lost somewhere
-- [ ] **Mafia vision** - Mafia should see who's around them and what they're doing
-- [ ] **Snoopers get intel** - People actively snooping should learn more
-- [ ] **Hide other players' plans** - You shouldn't see where others plan to go during day planning
+- [x] Fixed | [x] Tested - Solo flow partially simplified; no unnecessary pass/reveal prompts in solo.
+- [x] Fixed | [x] Tested - Enter adds multiplayer names; no duplicate submit issues seen in regression run.
+- [x] Fixed | [x] Tested - Keep name input focused after Enter so bulk entry is fast.
+- [x] Fixed | [x] Tested - Slow bot transitions slightly so turns feel readable (without adding manual clicks).
+- [x] Fixed | [x] Tested - Mafia target cards show location + action details; verified during night targeting.
+- [x] Fixed | [x] Tested - Day planning privacy hides other players' planned actions.
+- [x] Fixed | [x] Tested - Discussion-to-vote flow prompts every player/device consistently in pass-and-play.
 
-## Multiplayer Features
+## P3 Multiplayer And Cross-Device
 
-- [ ] **Multi-device lobby** - Join code, device list (hide if single device)
-- [ ] **Chat lobby** - Prominent chat for multi-device games
-- [ ] **Message attribution** - If multiple players on one device, choose who sends message
-- [ ] **WebSocket support** - Currently pass-and-play only
+- [ ] Fixed | [ ] Tested - Multi-device lobby and device list (hide device list when only one device is present).
+- [ ] Fixed | [ ] Tested - Make chat prominent in multi-device discussion.
+- [ ] Fixed | [ ] Tested - Message attribution when one device has multiple players.
+- [ ] Fixed | [ ] Tested - WebSocket real-time support (currently pass-and-play oriented).
 
-## Polish
+## P4 Narration, Atmosphere, And Polish
 
-- [ ] **Enter key in multiplayer** - Press Enter to add player instead of clicking button
-- [ ] **Details of person next to person button** - Mafia chooses who to kill. The location of the person and also what they're doing should be in the same tile as the thing you can click to kill them.
-- [ ] **Sound effects** - Settings toggle exists but not implemented
-- [ ] **AI narrator** - Preset prompts for atmosphere (no API needed)
-- [ ] **Bot chat** - Simple preset messages like "I think this person is suspicious"
-- [ ] **Death animations** - Settings toggle exists but not implemented
+- [x] Fixed | [ ] Tested - Robust narration system:
+  - human narrator mode with broad visibility but no secret-role spoilers
+  - automated narrator mode with tone presets
+- [ ] Fixed | [ ] Tested - Bot chat lines during discussion.
+- 🔧 [x] Fixed | [ ] Tested - Wire settings toggle to real sound effects in gameplay.
+- [ ] Fixed | [ ] Tested - Wire settings toggle to visible death animations.
+- [x] Fixed | [x] Tested - Favicon 404 suppression.
 
-## Code Quality
+## P5 Project Hygiene
 
-- [ ] **Keep files separate** - Don't squeeze into one file
-- [ ] **Create compressed backup** - Single-file version in parent directory, update occasionally
-
----
-
-## Completed
-
-- [x] Game balance validation - Mafia >= Town now blocked with warning
-- [x] Game ending explanation - Shows who died and why game ended
+- [ ] Fixed | [ ] Tested - Keep `scripts/game.js` and `scripts/render.js` separated by responsibility.
+- [ ] Fixed | [ ] Tested - Maintain occasional compressed backup snapshot in parent directory.

@@ -1,117 +1,168 @@
-# How to Play Mafia
+# Mafia Rules And Gameplay Guide
 
-A social deduction game where the Town tries to find the Mafia before it's too late.
+This document is the source of truth for:
+- game rules
+- role behavior
+- phase flow
+- gameplay functionality the in-game tutorial must explain
 
----
+Do not change core rules without approval.
 
-## The Basics
+## Win Conditions
 
-You're in a group. Most of you are innocent **Townspeople**. But some of you are **Mafia** pretending to be innocent.
+- Town wins when all Mafia are eliminated.
+- Mafia wins when living Mafia count is equal to or greater than living non-Mafia count.
 
-- **Town wins** by voting out all the Mafia
-- **Mafia wins** when they equal or outnumber the Town
+## Roles
 
----
+### Villager
+- No special power.
+- Chooses location/action each day-night cycle.
+- Uses intel and discussion to vote.
 
-## The Roles
+### Mafia
+- Knows all Mafia teammates.
+- Cannot kill Mafia teammates.
+- At night, Mafia chooses kill targets and uses mafia-only planning options.
+- Mafia should clearly see that mafia choices are mafia-only.
 
-### 👤 Villager
-Just a regular person trying to survive. You vote, you gather intel, you try not to die.
+### Doctor
+- Chooses one save target in the morning phase.
+- Saves are probabilistic (not guaranteed).
+- Multiple attackers should make a successful save less likely.
 
-### 🔪 Mafia
-You know who your teammates are. Each night, you choose someone to eliminate. Act innocent during the day. Don't get caught.
+### Detective
+- Uses snooping/lingering style play (not "locked room" defensive behavior).
+- Better at gathering intel than villagers.
+- Lower chance of being noticed by Mafia while investigating.
 
-### 💉 Doctor
-Each morning, you can try to save someone who was attacked. You won't always succeed, but you might keep someone alive.
-
-### 🔍 Detective
-You're better at gathering intel than regular villagers. Your snooping is more effective, and you're harder for Mafia to catch.
-
----
-
-## How a Round Works
+## Round Structure
 
 ### 1. Role Reveal
-Everyone secretly learns their role. Mafia members see who their teammates are.
+- Each player privately sees their role.
+- Mafia also sees teammates.
+- In pass-and-play, prompts should say "Pass to [player name]" and avoid exposing role labels in pass text.
 
-### 2. Day Phase (Planning)
-Everyone chooses:
-- **Where to go** that night (each location has a risk level)
-- **What to do** there (actions give you intel but may expose you)
+### 2. Day Planning
+Each living player selects:
+- a location
+- a location-specific action
+- optional door stance when available (lock vs listen/open)
 
-You don't see where others are planning to go.
+Important behavior:
+- plans remain private during planning
+- locations/actions have clear risk and intel levels
+- higher risk generally increases potential intel
+- role identity influences available options and outcomes
 
-### 3. Night Phase
-The Mafia picks their target. They can see who's in their area and what they're doing. Snoopy people are more likely to get caught.
+### 3. Night Resolution
+- Mafia chooses kill target(s) from eligible non-Mafia players.
+- Mafia gets situational visibility based on who is around their active area.
+- If nobody is around a Mafia member, Mafia may infer broader location info due to active searching.
+- Snoopers/investigators should be sampled into a small set of observed room contexts (for example ~3 room contexts, ~5 for detectives), not omnipresent everywhere.
 
 ### 4. Morning
-- The Doctor (if alive) chooses someone to save
-- Deaths are announced
-- Everyone learns what intel they gathered
+- Doctor save happens (if doctor alive/eligible).
+- Death or survival outcome is announced.
+- Intel is delivered to players.
+- "No intel" outcomes should still show a meaningful baseline message instead of blank sections.
 
 ### 5. Discussion
-Share what you learned. Accuse people. Defend yourself. Lie if you're Mafia.
+- Discussion always exists before voting in multiplayer and single-device pass-and-play.
+- Solo mode can keep discussion lightweight but should still present intel and transition clearly.
+- Multi-device mode should make chat prominent.
+- If a device has multiple players, chat messages must attribute sender identity.
 
-### 6. Vote
-Majority vote eliminates one player. Their role is revealed.
+### 6. Voting
+- Every living player votes.
+- Elimination result is announced.
+- Role of eliminated player is revealed.
+- New round begins unless game is over.
 
-Then it repeats until someone wins.
+## Intel And Risk System
 
----
+### Core Principle
+Higher risk should generally yield higher potential intel.
 
-## The Intel System
+### Inputs To Risk
+- location base risk
+- action risk
+- door stance (lock/listen)
+- role modifiers (especially detective stealth advantage)
 
-Every action has two numbers:
-- **Intel** (0-100%) - How much you might learn
-- **Risk** (green/yellow/red) - How dangerous it is
+### Inputs To Intel
+- action intel value
+- proximity to events
+- role modifiers (detective bonus)
+- whether player was actively snooping/lingering
 
-**High intel = high risk.** If you snoop around, you might catch the Mafia... or they might catch you.
+### Intel Output Requirements
+- Every player should receive a result payload each morning:
+  - direct observations when successful
+  - nearby presence clues when applicable
+  - explicit "nothing conclusive" or equivalent fallback when nothing was detected
+- Mafia night view should include contextual target details (location/action) when visible.
 
-### What affects your risk:
-- Your location's base risk level
-- The action you choose
-- Whether you lock your door or leave it open to listen
-- Whether Mafia is in your area
+## Location And Action Design
 
-### What you can learn:
-- Who was in your location
-- Suspicious activity
-- Sometimes who the killer is (if you're lucky/skilled)
+- Actions are location-specific and should not feel generic across all places.
+- Each setting should include low/medium/high risk options.
+- Example action families:
+  - snoop/search/follow
+  - smoke/linger in exposed areas
+  - hide/lock up for safety
+  - listen through door for risky intel
+- Mafia should also have distinct planning actions separate from town actions.
 
-Detectives get better intel. Mafia sees everything in their area.
+## Modes
 
----
+### Solo (Human + Bots)
+- No pass-and-play privacy prompts.
+- Fast but readable flow.
+- Bot turns should not feel instantaneous; include pacing delay or staged narration.
 
-## Locations
+### Multiplayer Pass-And-Play (Single Device)
+- Private role/action prompts.
+- Explicit pass-to-player wording.
+- Discussion phase still required before vote.
 
-Each story setting has different locations with different risk levels:
+### Multiplayer Multi-Device
+- Uses join code/lobby and per-device player assignment.
+- Chat is a primary UI element during discussion.
+- Real-time sync behavior should remain compatible with single-device flow.
 
-- **Low risk** - Safer, but less to learn
-- **Medium risk** - Balanced
-- **High risk** - Dangerous, but more intel opportunities
+## Presets And Role Scaling
 
-Some locations let you lock your door. Locked = safer but less intel. Unlocked = you can listen, but you're exposed.
+- Presets should be meaningfully distinct (avoid near-duplicates).
+- Default preset target for 12 players is mafia-heavy with support roles (5 Mafia, 3 Doctors, 2 Detectives, 2 Villagers), while still scaling safely for smaller groups.
+- Preset math must not break small lobbies.
 
----
+## Narration Requirements
 
-## Solo Mode vs Multiplayer
+Two supported narration styles:
+- Human narrator support mode:
+  - can view broad game flow
+  - cannot see secret-role data that would spoil the game
+- Automated narrator mode:
+  - configurable style presets
+  - phase-by-phase atmospheric summaries and prompts
 
-### Solo Mode (vs Bots)
-Practice against AI opponents. No need to pass the device around.
+## In-Game Tutorial Requirements
 
-### Multiplayer (Pass-and-Play)
-Multiple players on one device. Pass it around for private actions.
+The tutorial should explicitly cover:
+1. Win conditions.
+2. Role responsibilities.
+3. Day planning (location, action, risk/intel, door choices).
+4. Night behavior by role (Mafia/Doctor/Detective/Villager).
+5. Morning intel interpretation.
+6. Discussion and voting flow.
+7. Mode differences (solo, pass-and-play, multi-device).
+8. Chat attribution rules for multi-player devices.
+9. Narration options and intended use.
 
-### Multiplayer (Multi-Device)
-Coming soon: Join codes and real-time play across devices.
+## Design Notes (No Rule Change)
 
----
-
-## Tips
-
-- **As Villager:** Share your intel, but be careful who you trust
-- **As Mafia:** Blend in, point fingers at others, don't be too quiet or too loud
-- **As Doctor:** Save people who seem important, or save yourself
-- **As Detective:** Use your intel advantage, but you're still a target
-
-The best part of Mafia is the social chaos. Lie. Accuse. Trust no one. Have fun.
+Current rule set is strong on social deduction and risk/reward. The main quality risk is complexity overload for new players. To keep your rules intact while improving usability:
+- make role-specific options visually obvious
+- keep intel phrasing simple and consistent
+- ensure tutorial and phase prompts mirror each other exactly

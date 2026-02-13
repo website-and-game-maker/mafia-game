@@ -26,6 +26,14 @@ function getIntelClass(intel) {
   return 'intel-high';
 }
 
+function getRiskPctLabel(risk) {
+  return `${Math.round((Math.max(0, Math.min(5, risk || 0)) / 5) * 100)}%`;
+}
+
+function getAliveDiscussionHumans() {
+  return getAlivePlayers().filter(player => !player.isBot);
+}
+
 // -----------------------------------------------------------------------------
 // MAIN RENDER
 // -----------------------------------------------------------------------------
@@ -172,7 +180,7 @@ function renderMultiLobby() {
           ${state.players.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No players yet</div>' : ''}
         </div>
         <div class="input-row">
-          <input type="text" class="input ${state.nameError ? 'input-error' : ''}" id="newPlayerInput" placeholder="Add player name..." onkeypress="if(event.key==='Enter')addPlayerFromInput()"/>
+          <input type="text" class="input ${state.nameError ? 'input-error' : ''}" id="newPlayerInput" placeholder="Add player name..."/>
           <button class="btn btn-primary btn-small" onclick="addPlayerFromInput()">Add</button>
         </div>
         ${state.nameError ? `<div class="error-msg">${state.nameError}</div>` : ''}
@@ -250,8 +258,9 @@ function renderRoleConfig(allPlayers, total, warnings) {
         `).join('')}
         <div class="role-summary">
           <span class="stat-display">👤 Villagers: ${Math.max(0, allPlayers.length - state.roleConfig.mafia - state.roleConfig.doctor - state.roleConfig.detective)}</span>
-          <span class="stat-display">Total: ${total}/${allPlayers.length}</span>
+          <span class="stat-display">Assigned: ${total}/${allPlayers.length}</span>
         </div>
+        ${state.selectedPreset?.id === 'classic' ? '<div style="color:var(--text-secondary);font-size:0.85rem;margin-top:8px">Classic target at 12 players: 5 Mafia / 3 Doctor / 2 Detective.</div>' : ''}
         ${warnings.length > 0 ? `<div class="warning-msg">${warnings.join(' ')}</div>` : ''}
       </div>
     </div>
@@ -396,6 +405,8 @@ function renderGame() {
         </div>
       ` : ''}
 
+      ${state.settings.narratorMode === 'human' ? renderNarratorConsole(allPlayers, alivePlayers) : ''}
+
       <div class="player-grid">
         ${allPlayers.map(p => `
           <div class="player-cell ${p.alive ? '' : 'dead'} ${current?.id === p.id && state.showRole ? 'current' : ''}">
@@ -411,6 +422,30 @@ function renderGame() {
   `;
 }
 
+function renderNarratorConsole(allPlayers, alivePlayers) {
+  const aliveCount = alivePlayers.length;
+  const deadCount = allPlayers.length - aliveCount;
+  const plannedCount = Object.keys(state.nightPlans || {}).length;
+  const votesCast = Object.keys(state.votes || {}).length;
+
+  return `
+    <div class="card narrator-panel">
+      <div class="narrator-title">🎙️ Human Narrator Console (No Secret Roles)</div>
+      <div class="narrator-grid">
+        <div><strong>Day:</strong> ${state.dayNumber}</div>
+        <div><strong>Phase:</strong> ${state.gamePhase.replace('_', ' ')}</div>
+        <div><strong>Alive:</strong> ${aliveCount}</div>
+        <div><strong>Dead:</strong> ${deadCount}</div>
+        <div><strong>Plans Locked:</strong> ${plannedCount}</div>
+        <div><strong>Votes Cast:</strong> ${votesCast}</div>
+      </div>
+      <div class="narrator-note">
+        This panel is safe for moderation: it avoids role identities and team secrets.
+      </div>
+    </div>
+  `;
+}
+
 // -----------------------------------------------------------------------------
 // PHASE RENDERERS
 // -----------------------------------------------------------------------------
@@ -419,20 +454,22 @@ function renderRevealPhase(current) {
   if (!current) return '';
 
   if (current.isBot) {
+    scheduleAutoAdvance(`reveal_${current.id}`, 'nextReveal');
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is ready...</div>
-        <button class="btn btn-secondary" onclick="nextReveal()">Continue</button>
+        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is reviewing their role...</div>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
       </div>
     `;
   }
+  clearAutoAdvance();
 
   // In solo mode, skip the turn prompt - go straight to role reveal
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">📲 <strong>${current.name}</strong>'s turn</div>
-        <p style="color:var(--text-secondary);margin-bottom:16px">Pass device to ${current.name}</p>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Only ${current.name} should look at this screen.</p>
         <button class="btn btn-primary btn-lg" onclick="showCurrentRole()">Reveal My Role</button>
       </div>
     `;
@@ -467,28 +504,41 @@ function renderDayPhase(current, allPlayers) {
   if (!current) return '';
 
   if (current.isBot) {
+    scheduleAutoAdvance(`day_${current.id}_${state.dayNumber}`, 'skipBotDay');
     return `
       <div class="card" style="text-align:center">
         <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is planning...</div>
-        <button class="btn btn-secondary" onclick="skipBotDay()">Continue</button>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
       </div>
     `;
   }
+  clearAutoAdvance();
 
   // In solo mode, skip the turn prompt - go straight to planning
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:16px">📲 <strong>${current.name}</strong>'s turn</div>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Plan privately before passing again.</p>
         <button class="btn btn-warning btn-lg" onclick="showCurrentRole()">Plan My Night</button>
       </div>
     `;
   }
 
   const isMafia = current.role === 'mafia';
-  const location = state.selectedStory.locations.find(l => l.id === state.selectedLocation);
+  const location = getLocationById(state.selectedLocation);
+  const actions = getAvailableActionsForPlayer(current, location);
+  const targetCandidates = allPlayers.filter(player => player.alive && player.id !== current.id);
 
   const sortedLocations = [...state.selectedStory.locations].sort((x, y) => (x.risk || 0) - (y.risk || 0));
+  const actionNeedsTarget = Boolean(state.selectedAction?.requiresTarget);
+  const doorChoiceRequired = Boolean(location?.canLock && !isMafia && current.role !== 'detective');
+  const canConfirm = Boolean(
+    state.selectedLocation
+      && state.selectedAction
+      && (!actionNeedsTarget || state.selectedActionTarget)
+      && (!doorChoiceRequired || state.selectedDoorOption)
+  );
 
   return `
     <div class="card">
@@ -503,26 +553,28 @@ function renderDayPhase(current, allPlayers) {
             <div class="location-card ${state.selectedLocation === l.id ? 'selected' : ''}" onclick="selectLocation('${l.id}')">
               <div class="location-header">
                 <span class="location-name">${l.name}</span>
-                <span class="risk-badge risk-${l.risk || 0}">Risk ${l.risk || 0}</span>
+                <span class="risk-badge risk-${l.risk || 0}">Risk ${getRiskPctLabel(l.risk || 0)}</span>
               </div>
-              ${l.canLock ? '<span style="font-size:0.8rem;color:#4ade80">🔒 Can lock</span>' : ''}
+              ${l.canLock ? '<span style="font-size:0.8rem;color:#4ade80">🔒 Private room option</span>' : ''}
             </div>
           `).join('')}
       </div>
 
       ${location ? `
-        <div class="section-label">2. What will you do there?</div>
+        <div class="section-label ${isMafia ? 'mafia-section-label' : ''}">
+          ${isMafia ? '2. Mafia-only planning options' : '2. What will you do there?'}
+        </div>
         <div class="action-list">
-          ${(isMafia ? state.selectedStory.mafiaActions : location.actions).map(ac => `
-            <div class="action-card ${state.selectedAction?.id === ac.id ? 'selected' : ''}" onclick="selectAction('${ac.id}')">
+          ${actions.map(ac => `
+            <div class="action-card ${isMafia ? 'mafia-action-card' : ''} ${state.selectedAction?.id === ac.id ? 'selected' : ''}" onclick="selectAction('${ac.id}')">
               <div class="action-header">
                 <span class="action-name">${ac.name}</span>
                 ${!isMafia ? `
                   <div class="action-stats">
                     <span class="${getIntelClass(ac.intel || 0)}">Intel ${Math.round((ac.intel || 0) * 100)}%</span>
-                    <span class="${getRiskClass(ac.risk || 0)}">Risk ${ac.risk || 0}</span>
+                    <span class="${getRiskClass(ac.risk || 0)}">Risk ${getRiskPctLabel(ac.risk || 0)}</span>
                   </div>
-                ` : ''}
+                ` : `<span style="color:#fca5a5;font-size:0.8rem">Mafia</span>`}
               </div>
               <div class="action-desc">${ac.desc}</div>
             </div>
@@ -530,7 +582,19 @@ function renderDayPhase(current, allPlayers) {
         </div>
       ` : ''}
 
-      ${location && location.canLock && state.selectedAction && !isMafia ? `
+      ${location && state.selectedAction && actionNeedsTarget ? `
+        <div class="section-label">3. Who are you tracking?</div>
+        <div class="target-grid">
+          ${targetCandidates.map(player => `
+            <button class="target-btn ${state.selectedActionTarget === player.id ? 'selected' : ''}"
+                    onclick="selectActionTarget('${player.id}')">
+              ${player.isBot ? '🤖 ' : '👤 '}${player.name}
+            </button>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      ${location && location.canLock && state.selectedAction && !isMafia && current.role !== 'detective' ? `
         <div class="section-label">3. What about your door?</div>
         <div class="door-options">
           <div class="door-option ${state.selectedDoorOption === 'lock' ? 'selected' : ''}" onclick="selectDoorOption('lock')">
@@ -556,8 +620,14 @@ function renderDayPhase(current, allPlayers) {
         </div>
       ` : ''}
 
-      <button class="btn btn-primary btn-full btn-lg" onclick="confirmDayPlan()" ${!state.selectedLocation || !state.selectedAction || (location?.canLock && !isMafia && !state.selectedDoorOption) ? 'disabled' : ''}>
-        Confirm Plan
+      ${location && location.canLock && state.selectedAction && current.role === 'detective' ? `
+        <div class="card detective-lock-note">
+          <strong>Detective rule:</strong> detectives stay in snoop/linger posture and never fully lock in.
+        </div>
+      ` : ''}
+
+      <button class="btn btn-primary btn-full btn-lg" onclick="confirmDayPlan()" ${!canConfirm ? 'disabled' : ''}>
+        ${isMafia ? 'Lock In Mafia Plan' : 'Confirm Plan'}
       </button>
     </div>
   `;
@@ -576,28 +646,36 @@ function renderNightPhase(current, alivePlayers) {
   const humanMafia = aliveHumans.some(p => p.role === 'mafia');
 
   if (current.isBot || current.role !== 'mafia' || !humanMafia) {
+    scheduleAutoAdvance(`night_${current.id}_${state.currentPlayerIndex}`, 'continueNight');
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:8px">🌙 Night falls...</div>
         <div style="color:var(--text-secondary);margin-bottom:16px">
           ${current.role === 'mafia' ? 'The shadows move...' : 'You settle in.'}
         </div>
-        <button class="btn btn-secondary btn-lg" onclick="continueNight()">Continue</button>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
       </div>
     `;
   }
+  clearAutoAdvance();
 
   // In solo mode, skip the turn prompt - go straight to target selection
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">🎭 <strong>${current.name}</strong> (Mafia)</div>
-        <button class="btn btn-danger btn-lg" onclick="showCurrentRole()">Choose Target</button>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Night action is private.</p>
+        <button class="btn btn-danger btn-lg" onclick="showCurrentRole()">Open Mafia Night Console</button>
       </div>
     `;
   }
 
-  const targets = alivePlayers.filter(p => p.role !== 'mafia');
+  const mafiaView = getVisibleTargetsForMafia(current.id, alivePlayers);
+  const targets = mafiaView.targets || [];
+  const visionNote = mafiaView.mode === 'nearby'
+    ? 'You only see people currently around your area.'
+    : 'No one nearby, so your search spread wider across the map.';
+  const snooperIntel = state.mafiaSnooperIntel[current.id] || {};
 
   return `
     <div class="card">
@@ -608,10 +686,19 @@ function renderNightPhase(current, alivePlayers) {
       </div>
 
       <div class="section-label" style="color:#f87171">🎯 Choose your target</div>
+      <div class="mafia-intel">
+        <div class="mafia-intel-header">Mafia visibility</div>
+        <div style="font-size:0.9rem;color:#fecaca">${visionNote}</div>
+      </div>
 
+      ${targets.length > 0 ? `
       <div class="target-list">
         ${targets.map(p => {
           const plan = state.nightPlans[p.id];
+          const snoopers = snooperIntel[p.id] || [];
+          const trackedTargetName = plan?.actionTarget
+            ? getAllPlayers().find(player => player.id === plan.actionTarget)?.name
+            : null;
           return `
             <div class="target-card ${state.selectedTarget === p.id ? 'selected' : ''}" onclick="selectTarget('${p.id}')">
               <div class="target-info">
@@ -619,13 +706,20 @@ function renderNightPhase(current, alivePlayers) {
                 <div class="target-details">
                   <span class="target-location">📍 ${plan?.locationName || 'Unknown'}</span>
                   ${plan?.action?.name ? `<span class="target-action">→ ${plan.action.name}</span>` : ''}
+                  ${trackedTargetName ? `<span class="target-action">Tracking: ${trackedTargetName}</span>` : ''}
                 </div>
+                ${snoopers.length > 0 ? `<div class="target-snoopers">👀 Spotted snoopers nearby: ${snoopers.join(', ')}</div>` : ''}
               </div>
               <div class="target-kill-btn">🎯 Kill</div>
             </div>
           `;
         }).join('')}
       </div>
+      ` : `
+      <div class="card" style="margin-bottom:16px;text-align:center">
+        <div style="color:var(--text-secondary)">No eligible targets visible.</div>
+      </div>
+      `}
 
       <button class="btn btn-danger btn-full btn-lg" onclick="confirmMafiaTarget()" ${!state.selectedTarget ? 'disabled' : ''}>
         Confirm Target
@@ -638,18 +732,21 @@ function renderDoctorPhase(alivePlayers) {
   const doctor = alivePlayers.find(p => p.role === 'doctor' && !p.isBot);
 
   if (!doctor) {
+    scheduleAutoAdvance(`doctor_auto_${state.dayNumber}`, 'skipDoctor');
     return `
       <div class="card" style="text-align:center">
         <div style="color:var(--text-secondary);margin-bottom:12px">💉 The doctor makes their choice...</div>
-        <button class="btn btn-secondary" onclick="skipDoctor()">Continue</button>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
       </div>
     `;
   }
+  clearAutoAdvance();
 
-  if (!state.showRole) {
+  if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:16px">💉 <strong>${doctor.name}</strong> (Doctor)</div>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${doctor.name}</strong></div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Doctor choice is private.</p>
         <button class="btn btn-lg" style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white" onclick="showCurrentRole()">
           Choose Who to Save
         </button>
@@ -657,9 +754,12 @@ function renderDoctorPhase(alivePlayers) {
     `;
   }
 
+  if (!state.showRole && isSoloMode()) state.showRole = true;
+
   return `
     <div class="card" style="border-color:#2563eb">
       <div class="section-label" style="color:#60a5fa">💉 Save one person from death tonight</div>
+      <p style="color:var(--text-secondary);margin-bottom:12px">Save chance is not guaranteed and drops when multiple attackers focus one target.</p>
       <div class="target-grid">
         ${alivePlayers.map(p => `
           <button class="target-btn ${state.selectedSave === p.id ? 'selected' : ''}"
@@ -678,24 +778,90 @@ function renderDoctorPhase(alivePlayers) {
 }
 
 function renderDiscussionPhase(current) {
-  const player = state.players.find(x => !x.isBot && x.alive);
-  const myIntel = player ? state.intelResults[player.id] : null;
+  if (!current) {
+    return `
+      <div class="card" style="text-align:center">
+        <div style="font-size:1.5rem;margin-bottom:16px">💬 Discussion Time</div>
+        <button class="btn btn-warning btn-lg" onclick="proceedToVote()">Proceed to Vote</button>
+      </div>
+    `;
+  }
+
+  const aliveHumans = getAliveDiscussionHumans();
+  const nextHuman = getNextAliveHumanIndex(state.currentPlayerIndex);
+
+  if (!state.showRole && !isSoloMode()) {
+    clearAutoAdvance();
+    return `
+      <div class="card" style="text-align:center">
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Discussion notes are private until you share them.</p>
+        <button class="btn btn-warning btn-lg" onclick="openDiscussionForCurrent()">Open Discussion Notes</button>
+      </div>
+    `;
+  }
+
+  if (!state.showRole && isSoloMode()) {
+    state.showRole = true;
+  }
+
+  const myIntel = state.intelResults[current.id] || {
+    heard: 'Nothing conclusive tonight. Compare stories before voting.',
+    saw: null,
+    nearby: null
+  };
+  const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
 
   return `
-    <div class="card" style="text-align:center">
+    <div class="card">
       <div style="font-size:1.5rem;margin-bottom:16px">💬 Discussion Time</div>
-      ${myIntel ? `
-        <div class="intel-box" style="text-align:left">
-          <div class="intel-header">🔍 What you learned last night:</div>
-          ${myIntel.heard ? `<div class="intel-item">👂 ${myIntel.heard}</div>` : ''}
-          ${myIntel.saw ? `<div class="intel-item" style="font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
-          ${myIntel.nearby ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="color:${ROLES[current.role]?.color}">${ROLES[current.role]?.icon}</span>
+        <strong>${current.name}</strong>
+      </div>
+
+      <div class="intel-box" style="text-align:left">
+        <div class="intel-header">🔍 What you learned last night:</div>
+        ${myIntel.heard ? `<div class="intel-item">👂 ${myIntel.heard}</div>` : ''}
+        ${myIntel.saw ? `<div class="intel-item" style="font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
+        ${myIntel.nearby ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
+        ${myIntel.tracked ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.tracked}</div>` : ''}
+      </div>
+
+      <div class="chat-panel ${aliveHumans.length > 1 ? 'chat-panel-prominent' : ''}">
+        <div class="chat-header">🗨️ Discussion Chat</div>
+        ${aliveHumans.length > 1 ? `
+          <div class="chat-senders">
+            ${aliveHumans.map(player => `
+              <button class="chat-sender-btn ${state.chatSenderId === player.id ? 'active' : ''}" onclick="setChatSender('${player.id}')">
+                ${player.name}
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+        <div class="chat-messages">
+          ${dayMessages.length === 0 ? '<div style="color:var(--text-secondary);font-size:0.9rem">No messages yet this round.</div>' : dayMessages.map(message => `
+            <div class="chat-message">
+              <span class="chat-author">${message.senderName}:</span> ${message.text}
+            </div>
+          `).join('')}
         </div>
-      ` : ''}
+        <div class="chat-compose">
+          <input class="input" type="text" value="${state.chatDraft.replace(/"/g, '&quot;')}"
+                 oninput="setChatDraft(this.value)"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();sendDiscussionMessage();}"
+                 placeholder="Type message and press Enter"/>
+          <button class="btn btn-secondary btn-small" onclick="sendDiscussionMessage()">Send</button>
+        </div>
+      </div>
+
       <p style="color:var(--text-secondary);margin-bottom:16px">
         Discuss what happened. Share info, make accusations, defend yourself.
       </p>
-      <button class="btn btn-warning btn-lg" onclick="proceedToVote()">Proceed to Vote</button>
+      <button class="btn btn-warning btn-lg" onclick="advanceDiscussion()">
+        ${nextHuman !== -1 && !isSoloMode() ? 'Pass to Next Player' : 'Proceed to Vote'}
+      </button>
     </div>
   `;
 }
@@ -711,20 +877,23 @@ function renderVotePhase(current, alivePlayers) {
   }
 
   if (current.isBot) {
+    scheduleAutoAdvance(`vote_bot_${current.id}_${state.dayNumber}`, 'skipBotVote');
     return `
       <div class="card" style="text-align:center">
         <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is voting...</div>
-        <button class="btn btn-secondary" onclick="skipBotVote()">Continue</button>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
       </div>
     `;
   }
+  clearAutoAdvance();
 
   if (!current.alive) {
+    scheduleAutoAdvance(`vote_dead_${current.id}_${state.dayNumber}`, 'skipDeadVote');
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:8px">💀 You are dead</div>
         <div style="color:var(--text-secondary);margin-bottom:16px">The dead cannot vote.</div>
-        <button class="btn btn-secondary" onclick="skipDeadVote()">Continue</button>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
       </div>
     `;
   }
@@ -733,13 +902,18 @@ function renderVotePhase(current, alivePlayers) {
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:16px">⚖️ <strong>${current.name}</strong>'s turn</div>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Cast your vote privately.</p>
         <button class="btn btn-warning btn-lg" onclick="showCurrentRole()">Cast My Vote</button>
       </div>
     `;
   }
 
-  const myIntel = state.intelResults[current.id];
+  const myIntel = state.intelResults[current.id] || {
+    heard: 'No strong clue from last night.',
+    saw: null,
+    nearby: null
+  };
   const otherPlayers = alivePlayers.filter(p => p.id !== current.id);
 
   return `
@@ -749,13 +923,12 @@ function renderVotePhase(current, alivePlayers) {
         <span>${current.name}</span>
       </div>
 
-      ${myIntel ? `
-        <div class="intel-box" style="margin-bottom:16px">
-          <div class="intel-header" style="font-size:0.8rem">Your intel:</div>
-          ${myIntel.heard ? `<div style="font-size:0.9rem">👂 ${myIntel.heard}</div>` : ''}
-          ${myIntel.saw ? `<div style="font-size:0.9rem;font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
-        </div>
-      ` : ''}
+      <div class="intel-box" style="margin-bottom:16px">
+        <div class="intel-header" style="font-size:0.8rem">Your intel:</div>
+        ${myIntel.heard ? `<div style="font-size:0.9rem">👂 ${myIntel.heard}</div>` : ''}
+        ${myIntel.saw ? `<div style="font-size:0.9rem;font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
+        ${myIntel.nearby ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
+      </div>
 
       <div class="section-label">Vote to eliminate:</div>
       <div class="target-grid">
@@ -782,40 +955,50 @@ function renderVotePhase(current, alivePlayers) {
 function renderInstructionsModal() {
   const tabs = [
     { id: 'basics', label: '🎮 Basics' },
-    { id: 'variant', label: '🔍 This Version' },
-    { id: 'multiplayer', label: '👥 Multiplayer' }
+    { id: 'variant', label: '🧩 Gameplay' },
+    { id: 'multiplayer', label: '👥 Modes' }
   ];
 
   let content = '';
   if (state.instructionsTab === 'basics') {
     content = `
       <h3 style="color:var(--purple-accent);margin-bottom:12px">🎮 Mafia Basics</h3>
-      <p><strong>Setup:</strong> Players get secret roles. Most are Villagers, some are Mafia.</p>
-      <p style="margin-top:12px"><strong>Mafia</strong> know each other and eliminate one person each night. Win when they equal or outnumber town.</p>
-      <p style="margin-top:12px"><strong>Town</strong> must find and vote out Mafia. Discussion and deduction are your weapons.</p>
-      <p style="margin-top:12px"><strong>Cycle:</strong> Day → Night → Morning → Vote → repeat.</p>
+      <p><strong>Town wins:</strong> all Mafia eliminated.</p>
+      <p style="margin-top:8px"><strong>Mafia wins:</strong> living Mafia are equal to or greater than living Town.</p>
+      <p style="margin-top:12px"><strong>Roles:</strong></p>
+      <p style="color:var(--text-secondary)">Villager: gather intel and vote.</p>
+      <p style="color:var(--text-secondary)">Mafia: coordinate kills secretly.</p>
+      <p style="color:var(--text-secondary)">Doctor: try to save one target (not guaranteed).</p>
+      <p style="color:var(--text-secondary)">Detective: stronger snoop intel, harder to notice.</p>
+      <p style="margin-top:12px"><strong>Cycle:</strong> Reveal → Day Plan → Night → Morning → Discussion → Vote.</p>
     `;
   } else if (state.instructionsTab === 'variant') {
     content = `
-      <h3 style="color:var(--purple-accent);margin-bottom:12px">🔍 This Version</h3>
+      <h3 style="color:var(--purple-accent);margin-bottom:12px">🧩 This Version</h3>
       <div style="margin-bottom:16px">
-        <h4 style="margin-bottom:4px">Location-Based Gameplay</h4>
-        <p style="color:var(--text-secondary)">Choose WHERE to be and WHAT to do. Different risks and rewards.</p>
+        <h4 style="margin-bottom:4px">1) Day Planning</h4>
+        <p style="color:var(--text-secondary)">Pick a location, action, and (if available) door stance. Riskier plays usually produce better intel.</p>
       </div>
       <div style="margin-bottom:16px">
-        <h4 style="margin-bottom:4px">Intel System</h4>
-        <p style="color:var(--text-secondary)">Actions give you intel. Higher risk = more intel.</p>
+        <h4 style="margin-bottom:4px">2) Night Resolution</h4>
+        <p style="color:var(--text-secondary)">Mafia picks a kill target from what they can see nearby. If no one is nearby, they search wider.</p>
+      </div>
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:4px">3) Morning Intel</h4>
+        <p style="color:var(--text-secondary)">Everyone gets intel text, even if it is inconclusive. Detectives get stronger clues.</p>
       </div>
       <div>
-        <h4 style="margin-bottom:4px">Proximity Matters</h4>
-        <p style="color:var(--text-secondary)">Being near the murder scene means you might see something.</p>
+        <h4 style="margin-bottom:4px">4) Discussion Then Vote</h4>
+        <p style="color:var(--text-secondary)">Each player reviews intel, discusses, then everyone votes to eliminate one person.</p>
       </div>
     `;
   } else {
     content = `
-      <h3 style="color:var(--purple-accent);margin-bottom:12px">👥 Multiplayer</h3>
-      <p><strong>Devices:</strong> Share link to add devices. Each sees only what its players should see.</p>
-      <p style="margin-top:12px"><strong>Turn Privacy:</strong> Others should look away during your turn.</p>
+      <h3 style="color:var(--purple-accent);margin-bottom:12px">👥 Modes</h3>
+      <p><strong>Solo:</strong> no pass prompts, bot turns auto-advance with readable pacing.</p>
+      <p style="margin-top:8px"><strong>Pass-and-Play:</strong> prompts say "Pass to [name]" for private turns.</p>
+      <p style="margin-top:8px"><strong>Discussion chat:</strong> if multiple players share one device, messages show sender names.</p>
+      <p style="margin-top:8px"><strong>Multi-device:</strong> lobby/chat/sync support is designed to stay compatible with this same phase flow.</p>
     `;
   }
 
@@ -859,6 +1042,28 @@ function renderSettingsModal() {
           <span>Sound Effects</span>
           <input type="checkbox" class="checkbox" ${state.settings.sounds ? 'checked' : ''} onchange="toggleSetting('sounds')"/>
         </div>
+        <div class="settings-row" style="display:block">
+          <div style="margin-bottom:8px">Narrator Mode</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-small ${state.settings.narratorMode === 'auto' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('auto')">Auto</button>
+            <button class="btn btn-small ${state.settings.narratorMode === 'human' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('human')">Human</button>
+          </div>
+        </div>
+        <div class="settings-row" style="display:block">
+          <div style="margin-bottom:8px">Narrator Tone</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${['grim', 'cinematic', 'neutral'].map(tone => `
+              <button class="btn btn-small ${state.settings.narratorTone === tone ? 'btn-primary' : 'btn-secondary'}"
+                      onclick="setNarratorTone('${tone}')">
+                ${tone.charAt(0).toUpperCase() + tone.slice(1)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="settings-row" style="display:block">
+          <div style="margin-bottom:8px">Bot Turn Pace: ${state.botDelayMs}ms</div>
+          <input type="range" min="500" max="2200" step="100" value="${state.botDelayMs}" oninput="setBotDelay(this.value)" style="width:100%"/>
+        </div>
         <button class="btn btn-primary btn-full" style="margin-top:20px" onclick="hideSettings()">Done</button>
       </div>
     </div>
@@ -890,7 +1095,10 @@ function attachEventListeners() {
   const newPlayerInput = document.getElementById('newPlayerInput');
   if (newPlayerInput) {
     newPlayerInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') addPlayerFromInput();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addPlayerFromInput();
+      }
     });
   }
 }
