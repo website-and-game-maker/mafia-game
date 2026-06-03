@@ -16,10 +16,13 @@ Do not rewrite the architecture unless explicitly approved.
 
 ```bash
 cd mafia-game
-python3 -m http.server 8000
-# Optional for realtime multi-device mode:
+python3 server.py
+# Optional legacy split start:
+# python3 -m http.server 8000
 # python3 scripts/realtime_server.py --host 0.0.0.0 --port 8765
-# Host flow: open http://localhost:8000
+# Main app: open http://localhost:8000
+# Solo flow direct: open http://localhost:8000/solo.html
+# Host flow direct: open http://localhost:8000/host.html
 # Join flow: open http://localhost:8000/join.html
 ```
 
@@ -27,13 +30,18 @@ python3 -m http.server 8000
 
 ```
 mafia-game/
-├── index.html           # Host entry point
+├── index.html           # Main app entry (solo/multiplayer setup)
+├── solo.html            # Solo-focused entry point
+├── host.html            # Host-focused entry point (host-only lobby behavior)
 ├── join.html            # Join-focused entry point
+├── game.html            # Legacy flow alias (redirects to index with params)
+├── server.py            # Unified local backend launcher (HTTP + realtime relay)
 ├── styles/main.css      # Styling
+├── assets/floorplans/   # Floorplan images by story/floor
 ├── scripts/
 │   ├── game.js          # State, game logic, event handlers
 │   ├── render.js        # UI rendering functions
-│   ├── geography_data.js # Story map graphs (nodes/edges/sight/hearing)
+│   ├── geography_data.js # Story map graphs + floorplan metadata
 │   ├── narration_data.js # Story narration packs/backstory templates
 │   ├── realtime_server.py # WebSocket relay for realtime multi-device sync
 │   ├── run_quick_checks.sh # Repeatable syntax + localhost smoke checks
@@ -83,12 +91,15 @@ These directives reflect explicit owner instructions and override defaults when 
   - `Major Overhauls`
   - `Priority-1: Bugs`
   - `Priority-2: Gameplay Improvements`
-  - `Priority-3: Polishing`
-  - `Priority-4: Multiplayer Management` (major multiplayer breakages still belong in Priority-1).
+  - `Priority-3: Feature Addition`
+  - `Priority-4: Multiplayer Management` (major multiplayer breakages still belong in Priority-1)
+  - `Priority-5: Polishing`
 - Category boundaries:
   - `Priority-1: Bugs` is only for true malfunctions/regressions.
   - `Priority-2: Gameplay Improvements` is for behavior/design upgrades.
-  - `Priority-3: Polishing` is for cosmetic/usability quality improvements.
+  - `Priority-3: Feature Addition` is for net-new features that are not major overhauls.
+  - `Priority-4: Multiplayer Management` is for multiplayer UX/flow work that is not a hard bug.
+  - `Priority-5: Polishing` is for cosmetic/usability quality improvements.
 - Keep the `Human-written uncategorized` section in `TODOS.md`; do not delete it.
 - When uncategorized notes are added, convert them into clear categorized goals while preserving the raw uncategorized notes.
 - Checkbox meaning in `TODOS.md`:
@@ -98,7 +109,7 @@ These directives reflect explicit owner instructions and override defaults when 
 - Never mark an item complete unless every part of that item is fully fixed.
 - After an item is carefully tested, remove it from `TODOS.md`.
 - When owner requests coding-first mode:
-  - implement all requested TODOs first (Priority-1 -> Priority-2 -> Priority-3 -> Priority-4)
+  - implement all requested TODOs first (Priority-1 -> Priority-2 -> Priority-3 -> Priority-4 -> Priority-5)
   - do not run Playwright/browser testing until all requested implementation work is complete.
 - Keep `INSTRUCTIONS.md` continuously aligned with current gameplay behavior (not only abstract rules).
 - Multiplayer UX must stay non-technical for players:
@@ -112,8 +123,8 @@ These directives reflect explicit owner instructions and override defaults when 
   - cues are phase-safe and non-role-spoiling
   - single-device cues are verbal; multi-device cues are chat-based.
 - Map requirement tracking:
-  - current gameplay logic may use graph data
-  - roadmap requires floorplan-style map presentation with per-floor images and room-level connection notes.
+  - gameplay logic uses graph data and map distance checks
+  - player-facing map presentation must remain floorplan-style (per-floor images + room connection notes).
 
 ## TODO Status Rules
 
@@ -166,7 +177,7 @@ Known constraints in this workspace:
 - Playwright MCP may return `ERR_CONNECTION_REFUSED` for `http://localhost:8000` even when the server is healthy.
 - Playwright MCP blocks `file://` URLs (`Allowed protocols: http:, https:, about:, data:`).
 - Sometimes MCP gets stuck with `Another browser context is being closed`.
-- For file-distributed builds, join URLs should point to sibling `join.html` (for example `file:///.../join.html?join=CODE`).
+- For file-distributed builds, prefer a served URL (`http://localhost:8000/index.html?join=CODE`) so multi-device joins work reliably.
 
 Fallback when MCP cannot hit localhost:
 
@@ -201,6 +212,7 @@ These points are repeatedly emphasized by the user and should be treated as defa
   - single-device narrator delivery is verbal
   - multi-device narrator delivery is chat-based
 - Geography/map graph and narration engine are major systems and should stay aligned with `scripts/geography_data.js` + `scripts/narration_data.js`.
+- Floorplan visuals are part of the current experience and should stay aligned with `assets/floorplans/*` + `scripts/geography_data.js`.
 - `TODOS.md` is impact-first and status-driven (`[x]` means implemented; remove items after thorough testing).
 
 ## Commit Naming Guidance

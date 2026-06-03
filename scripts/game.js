@@ -21,10 +21,10 @@ const STORY_TOWN_LABELS = {
 };
 
 const ROLE_PRESETS = [
-  { id: 'classic', name: 'Classic', description: 'Balanced default with strong Mafia pressure and steady support roles.', mafia: 20, doctor: 10, detective: 10, color: '#22c55e' },
-  { id: 'brutal', name: 'Blood Moon', description: 'Aggressive Mafia numbers with limited support and tense mornings.', mafia: 30, doctor: 8, detective: 6, color: '#f97316' },
-  { id: 'chaos', name: 'Crossfire', description: 'Volatile nights where loud strikes and mixed clues create chaos.', mafia: 28, doctor: 14, detective: 8, color: '#ef4444' },
-  { id: 'detective', name: 'Forensics', description: 'Investigation-heavy setup with stronger detective presence.', mafia: 18, doctor: 8, detective: 26, color: '#a855f7' }
+  { id: 'classic', name: 'Classic', description: 'Balanced baseline: steady Mafia pressure with dependable doctor and detective support.', mafia: 20, doctor: 10, detective: 10, color: '#22c55e' },
+  { id: 'brutal', name: 'Blood Moon', description: 'Higher Mafia pressure and thinner support. Mornings are harsher and mistakes are punished quickly.', mafia: 30, doctor: 8, detective: 6, color: '#f97316' },
+  { id: 'chaos', name: 'Crossfire', description: 'Swingy table: stronger Mafia pressure plus extra doctor coverage. Nights create noisy, conflicting intel.', mafia: 28, doctor: 14, detective: 8, color: '#ef4444' },
+  { id: 'detective', name: 'Forensics', description: 'Investigation-heavy table: more detective influence and slower Mafia tempo when evidence is managed well.', mafia: 18, doctor: 8, detective: 26, color: '#a855f7' }
 ];
 
 const KILL_METHODS = [
@@ -124,6 +124,33 @@ const NIGHT_AWARENESS_OPTIONS = [
   }
 ];
 
+const ENVIRONMENT_PROFILES = [
+  {
+    id: 'balanced',
+    name: 'Balanced Rules',
+    desc: 'Default baseline: standard exposure, standard disturbance, and standard doctor stabilization odds.',
+    exposureMultiplier: 1,
+    disturbanceMultiplier: 1,
+    cureDifficultyShift: 0
+  },
+  {
+    id: 'stealth',
+    name: 'Midnight Silence',
+    desc: 'Quieter nights with softer movement signatures. Players are less exposed, attacks are less disruptive, and doctor saves are slightly easier.',
+    exposureMultiplier: 0.92,
+    disturbanceMultiplier: 0.78,
+    cureDifficultyShift: -0.08
+  },
+  {
+    id: 'chaotic',
+    name: 'Panic Spiral',
+    desc: 'High-pressure variant: more exposure, louder disturbance, and tougher doctor stabilization. Discussion gets noisier and riskier.',
+    exposureMultiplier: 1.12,
+    disturbanceMultiplier: 1.26,
+    cureDifficultyShift: 0.1
+  }
+];
+
 const EXPOSURE_BY_NODE_TYPE = {
   private_cluster: 0.2,
   vantage: 0.38,
@@ -177,18 +204,72 @@ const NARRATION_PRESETS = window.NARRATION_PRESETS || {
   }
 };
 
-const JOIN_CODE_PARAM = new URLSearchParams(window.location.search).get('join');
+const URL_PARAMS = new URLSearchParams(window.location.search);
+const JOIN_CODE_PARAM = URL_PARAMS.get('join');
+const ROOM_CODE_PARAM = URL_PARAMS.get('room');
+const ROLE_PARAM = String(URL_PARAMS.get('role') || '').trim().toLowerCase();
+const SCREEN_PARAM = String(URL_PARAMS.get('screen') || '').trim().toLowerCase();
+const PATHNAME = window.location.pathname || '/';
+const IS_HOST_PAGE = /\/host\.html$/i.test(PATHNAME);
+const IS_JOIN_PAGE = /\/join\.html$/i.test(PATHNAME);
+const IS_SOLO_PAGE = /\/solo\.html$/i.test(PATHNAME);
 const DEFAULT_REALTIME_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname || 'localhost'}:8765`;
+const DEVICE_NAME_STORAGE_KEY = 'mafia_device_name';
+const DEVICE_ID_STORAGE_KEY = 'mafia_device_id';
+const ROOM_CACHE_PREFIX = 'mafia_room_cache_';
 
 const realtime = {
   socket: null,
   applyingRemoteState: false,
   replayingRemoteAction: false,
-  lastBroadcastPayload: ''
+  lastBroadcastPayload: '',
+  lastPersistedPayload: '',
+  connectAttemptId: 0,
+  pendingSocket: null,
+  pendingTimerId: null,
+  ackTimerId: null
 };
+
+// Cached room snapshots expire so an old tab cannot restore an ancient game,
+// and so secret role data does not linger in localStorage forever.
+const ROOM_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const BACKEND_DEFAULT_PORT = 8000;
+const BACKEND_PROBE_TIMEOUT_MS = 1200;
+let backendAutoSwitchInFlight = false;
 
 function clamp01(value) {
   return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function randomCodeFromAlphabet(length = 6) {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(Math.max(4, length));
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return Array.from(bytes.slice(0, length), value => alphabet[value % alphabet.length]).join('');
+}
+
+function generateRoomCode() {
+  return randomCodeFromAlphabet(6);
+}
+
+function getStoredDeviceId() {
+  try {
+    const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+    if (existing && existing.trim()) return existing.trim().slice(0, 40);
+  } catch (error) {
+    // ignore localStorage read issues
+  }
+  const created = `dev_${randomCodeFromAlphabet(10).toLowerCase()}`;
+  try {
+    localStorage.setItem(DEVICE_ID_STORAGE_KEY, created);
+  } catch (error) {
+    // ignore localStorage write issues
+  }
+  return created;
 }
 
 function toLegacyRisk(exposure) {
@@ -375,6 +456,7 @@ function normalizeStoryData() {
     });
 
     story.mapGraph = graph || { nodes: [], edges: [], bedroomHubNode: null, detectiveSnoopNode: null };
+    story.floorplan = graph?.floorplan || null;
   });
 }
 
@@ -517,27 +599,54 @@ const SoundEffects = {
 // GAME STATE
 // -----------------------------------------------------------------------------
 
+const INITIAL_JOIN_CODE = String(JOIN_CODE_PARAM || '')
+  .toUpperCase()
+  .replace(/[^A-Z0-9]/g, '')
+  .slice(0, 8);
+const INITIAL_ROOM_CODE = String(ROOM_CODE_PARAM || '')
+  .toUpperCase()
+  .replace(/[^A-Z0-9]/g, '')
+  .slice(0, 8);
+const INITIAL_CODE = INITIAL_JOIN_CODE || INITIAL_ROOM_CODE || generateRoomCode();
+const INITIAL_IS_JOIN_ROLE = IS_JOIN_PAGE || Boolean(INITIAL_JOIN_CODE) || ROLE_PARAM === 'join';
+const INITIAL_IS_HOST_ROLE = IS_HOST_PAGE || (!INITIAL_IS_JOIN_ROLE && ROLE_PARAM === 'host');
+const INITIAL_MULTI_MODE = (IS_HOST_PAGE || IS_JOIN_PAGE) ? 'realtime' : 'passplay';
+
 const state = {
   screen: 'setup',
-  gameCode: (JOIN_CODE_PARAM || Math.random().toString(36).substring(2, 8)).toUpperCase(),
-  joinCode: JOIN_CODE_PARAM ? JOIN_CODE_PARAM.toUpperCase() : '',
-  multiplayerMode: JOIN_CODE_PARAM ? 'realtime' : 'passplay',
-  realtimePanelMode: JOIN_CODE_PARAM ? 'join' : 'host',
+  gameCode: INITIAL_CODE,
+  joinCode: INITIAL_JOIN_CODE || INITIAL_ROOM_CODE || (IS_HOST_PAGE ? INITIAL_CODE : ''),
+  multiplayerMode: INITIAL_MULTI_MODE,
+  realtimePanelMode: INITIAL_IS_JOIN_ROLE ? 'join' : 'host',
+  entryPage: IS_HOST_PAGE ? 'host' : (IS_JOIN_PAGE ? 'join' : (IS_SOLO_PAGE ? 'solo' : 'index')),
   network: {
     connected: false,
     status: 'offline',
-    isHost: !JOIN_CODE_PARAM,
+    statusDetail: '',
+    isHost: INITIAL_IS_HOST_ROLE,
     hostDeviceId: null,
-    deviceId: `dev_${Math.random().toString(36).slice(2, 8)}`,
+    deviceId: getStoredDeviceId(),
     deviceName: 'Device 1',
     devices: [],
-    deviceOrder: []
+    deviceOrder: [],
+    shareHints: {
+      preferredPortalUrl: '',
+      alternatePortalUrls: [],
+      backendDetected: false,
+      lanPortalUrl: '',
+      originPortalUrl: '',
+      lanAvailable: false
+    }
   },
   soloPlayerName: '',
   settings: {
     aiNarrator: true,
     narratorMode: 'auto',
     narratorTone: 'grim',
+    networkShareMode: 'lan',
+    customShareBaseUrl: '',
+    customRelayUrl: '',
+    environmentProfile: 'balanced',
     botChat: true,
     deathAnimations: true,
     sounds: true
@@ -593,6 +702,11 @@ const state = {
   showInstructions: false,
   showSettings: false,
   showMap: false,
+  selectedMapFloor: null,
+  showBigRoomCode: false,
+  autoJoinPending: Boolean(INITIAL_JOIN_CODE || (ROLE_PARAM === 'join' && INITIAL_ROOM_CODE)),
+  copyFeedback: {},
+  cachedHostSnapshot: null,
   instructionsTab: 'rules',
   nameError: '',
   autoAdvance: { key: null, timerId: null },
@@ -705,9 +819,27 @@ function resolveNodeBaseId(nodeId) {
   return String(nodeId).split(':')[0];
 }
 
+function getEnvironmentProfile() {
+  const selected = String(state.settings.environmentProfile || 'balanced');
+  return ENVIRONMENT_PROFILES.find(profile => profile.id === selected) || ENVIRONMENT_PROFILES[0];
+}
+
+function getAdjustedDisturbance(method) {
+  const profile = getEnvironmentProfile();
+  const base = clamp01(method?.noise ?? 0.3);
+  return clamp01(base * (profile.disturbanceMultiplier || 1));
+}
+
+function getAdjustedCureDifficulty(method) {
+  const profile = getEnvironmentProfile();
+  const base = clamp01(method?.cureDifficulty ?? 0.6);
+  return clamp01(base + (profile.cureDifficultyShift || 0));
+}
+
 function getPlanExposure(player, plan) {
   if (!player || !plan?.action) return 0;
   const location = getLocationById(plan.location);
+  const profile = getEnvironmentProfile();
   const locationExposure = clamp01(location?.exposure ?? 0.4);
   const actionExposure = clamp01(plan.action.exposure ?? locationExposure);
   let exposure = clamp01((locationExposure * 0.55) + (actionExposure * 0.45));
@@ -718,7 +850,7 @@ function getPlanExposure(player, plan) {
 
   if (player.role === 'detective') exposure = clamp01(exposure - 0.18);
 
-  return exposure;
+  return clamp01(exposure * (profile.exposureMultiplier || 1));
 }
 
 function getPlanIntelChance(player, plan) {
@@ -869,10 +1001,22 @@ function clearDeathAnimation() {
   state.deathAnimation = null;
 }
 
-function sanitizeRoomCode(code) {
+function sanitizeRoomCode(code, fallback = state.gameCode || generateRoomCode()) {
   const cleaned = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (!cleaned) return state.gameCode;
+  if (!cleaned) return fallback;
   return cleaned.slice(0, 8);
+}
+
+function isHostOnlyPage() {
+  return state.entryPage === 'host';
+}
+
+function isJoinOnlyPage() {
+  return state.entryPage === 'join';
+}
+
+function isSoloOnlyPage() {
+  return state.entryPage === 'solo';
 }
 
 function isDefaultDeviceLabel(name) {
@@ -903,45 +1047,647 @@ function maybeAutoAssignDeviceName(devices = state.network.devices || []) {
   state.network.deviceName = `Device ${next}`;
 }
 
-function getJoinPortalBasePath() {
+function getSiblingPagePath(filename) {
   const pathname = window.location.pathname || '/';
-  if (pathname.endsWith('/join.html')) return pathname;
-  if (pathname.endsWith('/index.html')) return pathname.replace(/index\.html$/, 'join.html');
-  if (pathname.endsWith('/')) return `${pathname}join.html`;
+  if (pathname.endsWith(`/${filename}`)) return pathname;
+  if (pathname.endsWith('/')) return `${pathname}${filename}`;
+  if (/\/[^/]+\.html$/i.test(pathname)) {
+    return pathname.replace(/\/[^/]+\.html$/i, `/${filename}`);
+  }
+  if (!pathname.includes('.')) return `${pathname}/${filename}`;
   const slash = pathname.lastIndexOf('/');
-  if (slash === -1) return '/join.html';
-  return `${pathname.slice(0, slash + 1)}join.html`;
+  if (slash === -1) return `/${filename}`;
+  return `${pathname.slice(0, slash + 1)}${filename}`;
+}
+
+function getPageUrl(filename) {
+  const path = getSiblingPagePath(filename);
+  try {
+    return new URL(path, window.location.href).toString();
+  } catch (error) {
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+      return `${window.location.origin}${path}`;
+    }
+    return filename;
+  }
+}
+
+function getLocalAssetUrl(filename) {
+  try {
+    return new URL(filename, window.location.href).toString();
+  } catch (error) {
+    return filename;
+  }
+}
+
+function getRoomServiceStarterLinks() {
+  const macStarter = {
+    label: 'Download Room Service Starter',
+    url: getLocalAssetUrl('start_room_service.command')
+  };
+  const windowsStarter = {
+    label: 'Windows Starter',
+    url: getLocalAssetUrl('start_room_service.bat')
+  };
+  const platform = `${navigator.platform || ''} ${navigator.userAgent || ''}`.toLowerCase();
+  const prefersWindows = /\bwin/i.test(platform);
+  return prefersWindows
+    ? { primary: { ...windowsStarter, label: 'Download Room Service Starter' }, secondary: macStarter }
+    : { primary: macStarter, secondary: windowsStarter };
+}
+
+function getMainIndexPath() {
+  return getSiblingPagePath('index.html');
+}
+
+function sanitizeHttpUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+    if (!parsed.pathname) parsed.pathname = '/';
+    if (!parsed.pathname.endsWith('/')) parsed.pathname = `${parsed.pathname}/`;
+    parsed.hash = '';
+    return parsed.toString();
+  } catch (error) {
+    return '';
+  }
+}
+
+function sanitizeWsUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    if (!['ws:', 'wss:'].includes(parsed.protocol)) return '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch (error) {
+    return '';
+  }
+}
+
+function looksLikeLanHost(hostname) {
+  const host = String(hostname || '').trim().toLowerCase();
+  if (!host) return false;
+  if (/^192\.168\./.test(host)) return true;
+  if (/^10\./.test(host)) return true;
+  const private172 = host.match(/^172\.(\d{1,3})\./);
+  if (private172) {
+    const second = Number(private172[1]);
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
+}
+
+function looksLikeLanUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    return looksLikeLanHost(parsed.hostname);
+  } catch (error) {
+    return false;
+  }
+}
+
+function getNetworkingShareMode() {
+  const value = String(state.settings.networkShareMode || 'lan').trim().toLowerCase();
+  if (value === 'origin' || value === 'custom' || value === 'lan') return value;
+  return 'lan';
+}
+
+function isLanShareModeAvailable() {
+  return Boolean(sanitizeHttpUrl(state.network.shareHints?.lanPortalUrl || ''));
+}
+
+function relayUrlFromPortal(portalUrl) {
+  try {
+    const parsed = new URL(String(portalUrl || '').trim());
+    const relayProtocol = parsed.protocol === 'https:' ? 'wss' : 'ws';
+    const host = parsed.hostname || '';
+    if (!host) return '';
+    return `${relayProtocol}://${host}:8765`;
+  } catch (error) {
+    return '';
+  }
+}
+
+function getPortalBasePath() {
+  const pathname = window.location.pathname || '/';
+  if (pathname.endsWith('/')) return pathname;
+  if (/\/[^/]+\.html$/i.test(pathname)) {
+    return pathname.replace(/\/[^/]+\.html$/i, '/');
+  }
+  return pathname;
+}
+
+function getCurrentPortalUrl() {
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return sanitizeHttpUrl(`${window.location.origin}${getPortalBasePath()}`);
+  }
+  return '';
+}
+
+function getCurrentEntryFilename() {
+  if (state.entryPage === 'host') return 'host.html';
+  if (state.entryPage === 'join') return 'join.html';
+  if (state.entryPage === 'solo') return 'solo.html';
+  return 'index.html';
+}
+
+function buildShareHintsFromPayload(payload, { defaultOriginUrl = '', backendDetected = true } = {}) {
+  const preferredPortalUrl = sanitizeHttpUrl(payload?.preferredPortalUrl || '');
+  const alternatePortalUrls = Array.isArray(payload?.alternatePortalUrls)
+    ? payload.alternatePortalUrls
+      .map(entry => ({
+        label: String(entry?.label || '').trim(),
+        url: sanitizeHttpUrl(entry?.url || '')
+      }))
+      .filter(entry => entry.label && entry.url)
+    : [];
+  const originPortalUrl = sanitizeHttpUrl(
+    payload?.originPortalUrl
+    || payload?.currentPortalUrl
+    || defaultOriginUrl
+    || getCurrentPortalUrl()
+  );
+  let lanPortalUrl = sanitizeHttpUrl(payload?.lanPortalUrl || '');
+  if (!lanPortalUrl && looksLikeLanUrl(preferredPortalUrl)) {
+    lanPortalUrl = preferredPortalUrl;
+  }
+  if (!lanPortalUrl) {
+    const lanAlt = alternatePortalUrls.find(entry => looksLikeLanUrl(entry.url));
+    lanPortalUrl = sanitizeHttpUrl(lanAlt?.url || '');
+  }
+  const lanAvailable = Boolean(lanPortalUrl);
+  return {
+    preferredPortalUrl,
+    alternatePortalUrls,
+    backendDetected: Boolean(backendDetected),
+    lanPortalUrl,
+    originPortalUrl,
+    lanAvailable
+  };
+}
+
+function applyShareHints(nextHints) {
+  const previous = JSON.stringify(state.network.shareHints || {});
+  state.network.shareHints = nextHints;
+  if (!nextHints.lanAvailable && getNetworkingShareMode() === 'lan') {
+    state.settings.networkShareMode = 'origin';
+  }
+  if (
+    JSON.stringify(state.network.shareHints) !== previous
+    && (state.screen === 'multi_lobby' || state.screen === 'join_entry' || state.showSettings)
+  ) {
+    render();
+  }
+}
+
+function isLocalHostAddress(hostname) {
+  const host = String(hostname || '').trim().toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host === '::1') return true;
+  if (host === '127.0.0.1' || /^127\./.test(host)) return true;
+  return looksLikeLanHost(host);
+}
+
+function isLoopbackHost(hostname) {
+  const host = String(hostname || '').trim().toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host === '::1' || host === '[::1]') return true;
+  if (host === '127.0.0.1' || /^127\./.test(host)) return true;
+  return false;
+}
+
+function isPortalShareableUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    const host = String(parsed.hostname || '').trim().toLowerCase();
+    if (!host) return false;
+    if (isLoopbackHost(host)) return false;
+    if (host === '0.0.0.0' || host === '::' || host === '[::]') return false;
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch (error) {
+    return false;
+  }
+}
+
+// The configured online relay (set in scripts/config.js). Used so a static host
+// (e.g. GitHub Pages) can host/join multi-device rooms without a local backend.
+function getConfiguredRelayUrl() {
+  const raw = (typeof window !== 'undefined' && window.MAFIA_CONFIG && window.MAFIA_CONFIG.productionRelayUrl) || '';
+  let url = sanitizeWsUrl(raw);
+  if (!url) return '';
+  // Never allow blocked mixed content: an https page must use wss://
+  if (window.location.protocol === 'https:' && url.indexOf('ws://') === 0) {
+    url = `wss://${url.slice('ws://'.length)}`;
+  }
+  return url;
+}
+
+// True when served from a public static host (e.g. GitHub Pages): http(s) and
+// not a localhost/LAN address. Such hosts have no same-origin Python backend,
+// so we must not probe /api/* and instead rely on the configured online relay.
+function isPublicStaticHost() {
+  if (!['http:', 'https:'].includes(window.location.protocol)) return false;
+  return !isLocalHostAddress(window.location.hostname);
+}
+
+// Best-effort wake of a configured relay before the WebSocket dial. Free hosting
+// tiers cold-start, so we ping the relay's HTTP /health first (no-cors: we only
+// need to trigger the wake, not read the response).
+async function warmUpConfiguredRelay() {
+  const relay = getConfiguredRelayUrl();
+  if (!relay) return;
+  let healthUrl = '';
+  try {
+    const parsed = new URL(relay);
+    parsed.protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:';
+    parsed.pathname = '/health';
+    healthUrl = parsed.toString();
+  } catch (error) {
+    return;
+  }
+  state.network.statusDetail = 'Waking up the online room service (first connect can take ~30s)...';
+  render();
+  try {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => {
+      try { controller.abort(); } catch (error) { /* ignore */ }
+    }, 55000) : null;
+    await fetch(healthUrl, {
+      mode: 'no-cors',
+      cache: 'no-store',
+      ...(controller ? { signal: controller.signal } : {})
+    });
+    if (timer) clearTimeout(timer);
+  } catch (error) {
+    // best-effort only; proceed to the WebSocket dial regardless
+  }
+}
+
+function shouldAttemptLocalBackendRecovery() {
+  if (window.location.protocol === 'file:') return true;
+  if (!['http:', 'https:'].includes(window.location.protocol)) return false;
+  return isLocalHostAddress(window.location.hostname);
+}
+
+function shouldShowRoomServiceStarter() {
+  // The local room-service starter (.command/.bat) is meaningless on a public
+  // static host — online play uses the configured relay instead.
+  if (isPublicStaticHost()) return false;
+  if (!isRealtimeMode() || !state.network.isHost) return false;
+  if (state.network.connected || state.network.status !== 'error') return false;
+  const detail = String(state.network.statusDetail || '').trim();
+  if (!detail) return !Boolean(state.network.shareHints?.backendDetected);
+  return /Could not start room service automatically|Could not start room connection from this URL|Room service not ready/i.test(detail);
+}
+
+function getLocalBackendPortalCandidates() {
+  const candidates = [];
+  const addCandidate = (raw) => {
+    const normalized = sanitizeHttpUrl(raw);
+    if (!normalized) return;
+    if (!candidates.includes(normalized)) candidates.push(normalized);
+  };
+
+  const host = String(window.location.hostname || '').trim();
+  if (host) {
+    addCandidate(`http://${host}:${BACKEND_DEFAULT_PORT}/`);
+  }
+  addCandidate(`http://127.0.0.1:${BACKEND_DEFAULT_PORT}/`);
+  addCandidate(`http://localhost:${BACKEND_DEFAULT_PORT}/`);
+
+  return candidates;
+}
+
+function buildBackendRedirectUrl(basePortalUrl) {
+  const normalizedBase = sanitizeHttpUrl(basePortalUrl);
+  if (!normalizedBase) return '';
+  try {
+    const target = new URL(getCurrentEntryFilename(), normalizedBase);
+    const params = new URLSearchParams(window.location.search || '');
+    if (state.entryPage === 'index' && state.screen === 'multi_entry' && !params.get('screen')) {
+      params.set('screen', 'multi_entry');
+    }
+    target.search = params.toString();
+    return target.toString();
+  } catch (error) {
+    return '';
+  }
+}
+
+async function fetchNetworkInfoPayload(basePortalUrl, timeoutMs = BACKEND_PROBE_TIMEOUT_MS) {
+  const normalizedBase = sanitizeHttpUrl(basePortalUrl);
+  if (!normalizedBase) return null;
+  let requestUrl = '';
+  try {
+    requestUrl = new URL('api/network-info', normalizedBase).toString();
+  } catch (error) {
+    return null;
+  }
+
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timeoutId = controller
+    ? setTimeout(() => {
+      try {
+        controller.abort();
+      } catch (error) {
+        // ignore abort errors
+      }
+    }, timeoutMs)
+    : null;
+
+  try {
+    const response = await fetch(requestUrl, {
+      cache: 'no-store',
+      mode: 'cors',
+      ...(controller ? { signal: controller.signal } : {})
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    if (!payload || typeof payload !== 'object') return null;
+    return { basePortalUrl: normalizedBase, payload };
+  } catch (error) {
+    return null;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+async function fetchEnsureBackendPayload(basePortalUrl, timeoutMs = BACKEND_PROBE_TIMEOUT_MS) {
+  const normalizedBase = sanitizeHttpUrl(basePortalUrl);
+  if (!normalizedBase) return null;
+  let requestUrl = '';
+  try {
+    requestUrl = new URL('api/ensure-backend', normalizedBase).toString();
+  } catch (error) {
+    return null;
+  }
+
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timeoutId = controller
+    ? setTimeout(() => {
+      try {
+        controller.abort();
+      } catch (error) {
+        // ignore abort errors
+      }
+    }, timeoutMs)
+    : null;
+
+  try {
+    const response = await fetch(requestUrl, {
+      cache: 'no-store',
+      mode: 'cors',
+      ...(controller ? { signal: controller.signal } : {})
+    });
+    const payload = await response.json().catch(() => null);
+    if (!payload || typeof payload !== 'object') return null;
+    return { basePortalUrl: normalizedBase, payload, ok: response.ok };
+  } catch (error) {
+    return null;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+function getBackendProbePortalCandidates() {
+  const candidates = [];
+  const addCandidate = (raw) => {
+    const normalized = sanitizeHttpUrl(raw);
+    if (!normalized) return;
+    if (!candidates.includes(normalized)) candidates.push(normalized);
+  };
+  addCandidate(getCurrentPortalUrl());
+  getLocalBackendPortalCandidates().forEach(addCandidate);
+  return candidates;
+}
+
+function getFirstShareableAlternatePortal(primaryUrl = '') {
+  const primaryNormalized = sanitizeHttpUrl(primaryUrl);
+  const source = Array.isArray(state.network.shareHints?.alternatePortalUrls)
+    ? state.network.shareHints.alternatePortalUrls
+    : [];
+  for (const entry of source) {
+    const url = sanitizeHttpUrl(entry?.url || '');
+    if (!url || url === primaryNormalized) continue;
+    if (!isPortalShareableUrl(url)) continue;
+    return url;
+  }
+  return '';
+}
+
+async function ensureBackendForHostClick() {
+  const currentOrigin = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+    ? window.location.origin
+    : '';
+  const candidates = getBackendProbePortalCandidates();
+
+  for (const candidate of candidates) {
+    const ensured = await fetchEnsureBackendPayload(candidate, 2200);
+    if (!ensured) continue;
+
+    const hints = buildShareHintsFromPayload(ensured.payload, {
+      defaultOriginUrl: ensured.basePortalUrl,
+      backendDetected: true
+    });
+    applyShareHints(hints);
+
+    const relayReady = Boolean(ensured.payload?.relayReady ?? ensured.payload?.relayRunning);
+    if (!relayReady) continue;
+
+    let candidateOrigin = '';
+    try {
+      candidateOrigin = new URL(ensured.basePortalUrl).origin;
+    } catch (error) {
+      candidateOrigin = '';
+    }
+
+    if (candidateOrigin && candidateOrigin !== currentOrigin) {
+      const redirectUrl = buildBackendRedirectUrl(ensured.basePortalUrl);
+      if (redirectUrl && redirectUrl !== window.location.href) {
+        state.network.status = 'connecting';
+        state.network.statusDetail = 'Room service found. Switching to host URL...';
+        render();
+        window.location.replace(redirectUrl);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const recovered = await maybeRecoverViaLocalBackend();
+  if (recovered) return true;
+  await refreshShareHints();
+  return Boolean(state.network.shareHints?.backendDetected);
+}
+
+async function maybeRecoverViaLocalBackend() {
+  if (!shouldAttemptLocalBackendRecovery()) return false;
+  if (backendAutoSwitchInFlight) return false;
+  backendAutoSwitchInFlight = true;
+  try {
+    const candidates = getLocalBackendPortalCandidates();
+    const currentOrigin = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+      ? window.location.origin
+      : '';
+
+    for (const candidate of candidates) {
+      const result = await fetchNetworkInfoPayload(candidate);
+      if (!result) continue;
+
+      const hints = buildShareHintsFromPayload(result.payload, {
+        defaultOriginUrl: result.basePortalUrl,
+        backendDetected: true
+      });
+      applyShareHints(hints);
+
+      let candidateOrigin = '';
+      try {
+        candidateOrigin = new URL(result.basePortalUrl).origin;
+      } catch (error) {
+        candidateOrigin = '';
+      }
+      if (candidateOrigin && candidateOrigin !== currentOrigin) {
+        const redirectUrl = buildBackendRedirectUrl(result.basePortalUrl);
+        if (redirectUrl && redirectUrl !== window.location.href) {
+          state.network.status = 'connecting';
+          state.network.statusDetail = `Local multiplayer backend detected at ${result.basePortalUrl}. Switching now...`;
+          render();
+          window.location.replace(redirectUrl);
+          return true;
+        }
+      }
+      return true;
+    }
+    return false;
+  } finally {
+    backendAutoSwitchInFlight = false;
+  }
 }
 
 function getJoinPortalUrl() {
-  const protocol = window.location.protocol;
-  const path = getJoinPortalBasePath();
-  if (protocol === 'http:' || protocol === 'https:') {
-    return `${window.location.origin}${path}`;
+  const mode = getNetworkingShareMode();
+  const customPortal = sanitizeHttpUrl(state.settings.customShareBaseUrl || '');
+  const lanPortal = sanitizeHttpUrl(state.network.shareHints?.lanPortalUrl || '');
+  const hinted = sanitizeHttpUrl(state.network.shareHints?.preferredPortalUrl || '');
+  const originPortal = sanitizeHttpUrl(state.network.shareHints?.originPortalUrl || '') || getCurrentPortalUrl();
+  let selected = '';
+
+  if (mode === 'custom' && customPortal) selected = customPortal;
+  else if (mode === 'origin') selected = originPortal;
+  else if (mode === 'lan' && lanPortal) selected = lanPortal;
+  else if (hinted) selected = hinted;
+  else if (customPortal) selected = customPortal;
+  else selected = originPortal;
+
+  if (isPortalShareableUrl(selected)) return selected;
+  return getFirstShareableAlternatePortal(selected);
+}
+
+function getJoinPortalAlternates() {
+  const primary = getJoinPortalUrl();
+  const primaryNormalized = sanitizeHttpUrl(primary);
+  const source = Array.isArray(state.network.shareHints?.alternatePortalUrls)
+    ? state.network.shareHints.alternatePortalUrls
+    : [];
+  const unique = [];
+  source.forEach(entry => {
+    const label = String(entry?.label || '').trim();
+    const url = sanitizeHttpUrl(entry?.url || '');
+    if (!label || !url) return;
+    if (!isPortalShareableUrl(url)) return;
+    if (url === primaryNormalized) return;
+    if (unique.some(item => item.url === url)) return;
+    unique.push({ label, url });
+  });
+  return unique;
+}
+
+async function refreshShareHints() {
+  // Solo play never needs multiplayer share hints or any backend probing.
+  if (IS_SOLO_PAGE) {
+    applyShareHints(buildShareHintsFromPayload({}, {
+      defaultOriginUrl: getCurrentPortalUrl(),
+      backendDetected: false
+    }));
+    return;
   }
-  if (protocol === 'file:') {
-    const current = window.location.href.split('?')[0];
-    if (current.endsWith('/join.html')) return current;
-    return current.endsWith('/index.html')
-      ? current.replace(/index\.html$/, 'join.html')
-      : `${current.substring(0, current.lastIndexOf('/') + 1)}join.html`;
+  // Public static host (e.g. GitHub Pages): there is no same-origin backend, so
+  // probing /api/network-info would 404 noisily. Online multiplayer uses the
+  // configured relay; the join portal is simply this page's URL.
+  if (isPublicStaticHost()) {
+    applyShareHints(buildShareHintsFromPayload(
+      { preferredPortalUrl: getCurrentPortalUrl() },
+      { defaultOriginUrl: getCurrentPortalUrl(), backendDetected: Boolean(getConfiguredRelayUrl()) }
+    ));
+    return;
   }
-  return '';
+  if (!['http:', 'https:'].includes(window.location.protocol)) {
+    applyShareHints(buildShareHintsFromPayload({}, { defaultOriginUrl: '', backendDetected: false }));
+    await maybeRecoverViaLocalBackend();
+    return;
+  }
+  try {
+    const response = await fetch('/api/network-info', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`network-info status ${response.status}`);
+    const payload = await response.json();
+    if (!payload || typeof payload !== 'object') throw new Error('network-info payload invalid');
+    applyShareHints(buildShareHintsFromPayload(payload, {
+      defaultOriginUrl: getCurrentPortalUrl(),
+      backendDetected: true
+    }));
+  } catch (error) {
+    const recovered = await maybeRecoverViaLocalBackend();
+    if (!recovered) {
+      applyShareHints(buildShareHintsFromPayload({}, {
+        defaultOriginUrl: getCurrentPortalUrl(),
+        backendDetected: false
+      }));
+    }
+  }
 }
 
 function getShareJoinUrl(code = state.gameCode) {
   const joinPortal = getJoinPortalUrl();
   if (!joinPortal) return '';
-  const roomCode = sanitizeRoomCode(code);
+  const roomCode = sanitizeRoomCode(code, '');
   if (!roomCode) return joinPortal;
-  return `${joinPortal}?join=${roomCode}`;
+  const connector = joinPortal.includes('?') ? '&' : '?';
+  return `${joinPortal}${connector}join=${encodeURIComponent(roomCode)}&role=join&screen=multi`;
+}
+
+function getShareQrImageUrl(code = state.gameCode) {
+  const shareUrl = getShareJoinUrl(code);
+  if (!shareUrl) return '';
+  return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(shareUrl)}`;
 }
 
 function getRelayCandidates() {
+  const configuredRelay = getConfiguredRelayUrl();
+  // On a public static host (e.g. GitHub Pages) there is no LAN/origin relay to
+  // reach; only the configured online relay can work. Avoid wasting connect
+  // attempts on unreachable ws://<that-host>:8765 candidates.
+  if (isPublicStaticHost()) {
+    return configuredRelay ? [configuredRelay] : [];
+  }
   const protocol = window.location.protocol;
   const wsProto = protocol === 'https:' ? 'wss' : 'ws';
   const hostname = window.location.hostname || 'localhost';
   const candidates = new Set();
+  if (configuredRelay) candidates.add(configuredRelay);
+  const customRelay = sanitizeWsUrl(state.settings.customRelayUrl || '');
+  const shareMode = getNetworkingShareMode();
+  const selectedPortalRelay = relayUrlFromPortal(getJoinPortalUrl());
+  const lanRelay = relayUrlFromPortal(state.network.shareHints?.lanPortalUrl || '');
+  const originRelay = relayUrlFromPortal(state.network.shareHints?.originPortalUrl || getCurrentPortalUrl());
+
+  if (shareMode === 'custom' && customRelay) candidates.add(customRelay);
+  if (selectedPortalRelay) candidates.add(selectedPortalRelay);
+  if (lanRelay) candidates.add(lanRelay);
+  if (originRelay) candidates.add(originRelay);
   candidates.add(`${wsProto}://${hostname}:8765`);
   if (hostname === 'localhost') candidates.add(`${wsProto}://127.0.0.1:8765`);
   if (hostname === '127.0.0.1') candidates.add(`${wsProto}://localhost:8765`);
@@ -949,18 +1695,228 @@ function getRelayCandidates() {
     candidates.add('ws://localhost:8765');
     candidates.add('ws://127.0.0.1:8765');
   }
-  return [...candidates];
+  let list = [...candidates];
+  // An https page cannot open an insecure ws:// socket (blocked mixed content),
+  // so drop any non-wss candidate to avoid SecurityError noise and wasted slots.
+  if (protocol === 'https:') {
+    list = list.filter(url => url.indexOf('wss://') === 0);
+  }
+  return list;
 }
 
 function getConnectionGuideText() {
+  const backendDetected = Boolean(state.network.shareHints?.backendDetected);
+  const mode = getNetworkingShareMode();
   const protocol = window.location.protocol;
+  if (isPublicStaticHost()) {
+    return getConfiguredRelayUrl()
+      ? 'Share this page link with your friends, then everyone enters the same room code to play online.'
+      : 'Online multiplayer is not set up for this site yet. Solo and single-device pass-and-play work right now.';
+  }
   if (protocol === 'file:') {
-    return 'Open this same folder on each device, launch join.html, and enter the room code.';
+    return 'Tap Host Game to start the room service. The join link appears once it is ready.';
+  }
+  if (!backendDetected) {
+    return 'Tap Host Game to start room service. Share links appear after it is ready.';
+  }
+  if (mode === 'custom') {
+    return 'Custom networking is on. Share your custom URL and room code.';
+  }
+  if (mode === 'origin') {
+    return 'Share this exact page URL on each device, then join with the room code.';
   }
   if (/^(localhost|127\.|192\.168\.|10\.)/.test(window.location.hostname || '')) {
     return 'Open this site URL on each device in the same network, then join with the room code.';
   }
-  return 'Share the portal URL or direct hotlink and join with the same room code.';
+  return 'Share this URL and enter the room code if prompted.';
+}
+
+function getRealtimeConnectionFailureMessage(isHostAttempt) {
+  const backendDetected = Boolean(state.network.shareHints?.backendDetected);
+  const mode = getNetworkingShareMode();
+  if (isPublicStaticHost()) {
+    if (!getConfiguredRelayUrl()) {
+      return 'Online multiplayer is not set up for this site yet (no relay configured). Solo and single-device pass-and-play still work.';
+    }
+    return isHostAttempt
+      ? 'Could not reach the online room service. It may be waking up — wait a few seconds and try Host Game again.'
+      : 'Could not reach the room. Make sure the host started it, the room service is awake, and the code is correct.';
+  }
+  if (!backendDetected) {
+    return isHostAttempt
+      ? 'Could not start room service automatically from this page. Use the room service starter below, then press Host Game on the local host page.'
+      : 'Room is not ready yet. Ask the host to start the room, then rejoin with the code.';
+  }
+  if (mode === 'custom') {
+    return isHostAttempt
+      ? 'Could not start room with current custom networking settings. Verify custom portal and relay URLs in Settings > Networking.'
+      : 'Could not join room with current custom networking settings. Verify custom relay URL and room code.';
+  }
+  return isHostAttempt
+    ? 'Could not start room connection from this URL. Confirm the backend is running on your network and try again.'
+    : 'Could not reach this room yet. Confirm host started the room and check the room code.';
+}
+
+function getIdleRealtimeStatusDetail(isHostMode) {
+  const backendDetected = Boolean(state.network.shareHints?.backendDetected);
+  if (!backendDetected) {
+    return isHostMode
+      ? 'Room service not ready yet. Press Host Game to start it.'
+      : 'Waiting for host room service. Enter code and join when host is ready.';
+  }
+  return isHostMode
+    ? 'Press Host Game to open this room.'
+    : 'Enter room code, then press Join Game.';
+}
+
+function applyEntryScreenDefaults() {
+  if (state.entryPage === 'host') {
+    state.screen = 'multi_lobby';
+    state.multiplayerMode = 'realtime';
+    state.realtimePanelMode = 'host';
+    state.network.isHost = true;
+    state.joinCode = state.joinCode || state.gameCode;
+    state.autoJoinPending = false;
+    return;
+  }
+  if (state.entryPage === 'join') {
+    state.screen = 'join_entry';
+    state.multiplayerMode = 'realtime';
+    state.realtimePanelMode = 'join';
+    state.network.isHost = false;
+    state.showBigRoomCode = false;
+    return;
+  }
+  if (state.entryPage === 'solo') {
+    state.screen = 'solo_lobby';
+    state.multiplayerMode = 'passplay';
+    state.showBigRoomCode = false;
+    return;
+  }
+  state.screen = 'setup';
+}
+
+function getRoomCacheKey(code = state.gameCode) {
+  const normalized = sanitizeRoomCode(code, '');
+  if (!normalized) return '';
+  return `${ROOM_CACHE_PREFIX}${normalized}`;
+}
+
+function clearRoomCache(code = state.gameCode) {
+  const key = getRoomCacheKey(code);
+  if (!key) return;
+  try {
+    localStorage.removeItem(key);
+    if (localStorage.getItem('mafia_last_room_code') === sanitizeRoomCode(code, '')) {
+      localStorage.removeItem('mafia_last_room_code');
+    }
+  } catch (error) {
+    // ignore localStorage issues
+  }
+}
+
+function loadCachedRoomState(code = state.gameCode) {
+  const key = getRoomCacheKey(code);
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    // Discard stale snapshots so an old tab can't restore an ancient game.
+    if (parsed.savedAt && (Date.now() - Number(parsed.savedAt)) > ROOM_CACHE_TTL_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+}
+
+function persistRoomStateCache() {
+  if (!isRealtimeMode()) return;
+  // No need to keep a finished game cached (and it holds every secret role).
+  if (state.gamePhase === 'gameover') return;
+  const roomCode = sanitizeRoomCode(state.gameCode, '');
+  if (!roomCode) return;
+  const key = getRoomCacheKey(roomCode);
+  if (!key) return;
+  const payload = {
+    version: 1,
+    savedAt: Date.now(),
+    code: roomCode,
+    role: state.network.isHost ? 'host' : 'join',
+    deviceId: state.network.deviceId,
+    deviceName: state.network.deviceName,
+    snapshot: state.network.isHost ? buildRealtimeStateSnapshot() : null
+  };
+  // Skip redundant writes on every render: compare everything except the
+  // timestamp so an unchanged game state doesn't re-serialize each frame.
+  const dedupeKey = JSON.stringify({ ...payload, savedAt: 0 });
+  if (dedupeKey === realtime.lastPersistedPayload) return;
+  realtime.lastPersistedPayload = dedupeKey;
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+    localStorage.setItem('mafia_last_room_code', roomCode);
+  } catch (error) {
+    // ignore localStorage write issues
+  }
+}
+
+function tryRestoreCachedRoomFromParams() {
+  const requestedCode = sanitizeRoomCode(INITIAL_JOIN_CODE || INITIAL_ROOM_CODE, '');
+  if (!requestedCode) return;
+  const cached = loadCachedRoomState(requestedCode);
+  if (!cached) return;
+  if (cached.deviceId && String(cached.deviceId).trim()) {
+    state.network.deviceId = String(cached.deviceId).trim();
+  }
+  if (cached.deviceName && String(cached.deviceName).trim()) {
+    state.network.deviceName = String(cached.deviceName).trim().slice(0, 32);
+  }
+  state.gameCode = requestedCode;
+  state.joinCode = requestedCode;
+  if ((cached.role === 'host' || INITIAL_IS_HOST_ROLE) && !INITIAL_IS_JOIN_ROLE) {
+    state.multiplayerMode = 'realtime';
+    state.realtimePanelMode = 'host';
+    state.network.isHost = true;
+    if (cached.snapshot && typeof cached.snapshot === 'object') {
+      state.cachedHostSnapshot = cached.snapshot;
+    }
+  }
+}
+
+function syncUrlState() {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return;
+  const url = new URL(window.location.href);
+  const params = url.searchParams;
+  ['screen', 'join', 'room', 'role'].forEach(key => params.delete(key));
+
+  if (state.screen === 'multi_lobby') {
+    params.set('screen', 'multi');
+  } else if (state.screen === 'multi_entry') {
+    params.set('screen', 'multi_entry');
+  }
+  if (isRealtimeMode() && ['multi_lobby', 'game'].includes(state.screen)) {
+    const code = sanitizeRoomCode(state.gameCode, '');
+    if (code) {
+      if (state.network.isHost) {
+        params.set('room', code);
+        params.set('role', 'host');
+      } else {
+        params.set('join', code);
+        params.set('role', 'join');
+      }
+    }
+  }
+
+  const nextSearch = params.toString();
+  const nextUrl = `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${url.hash || ''}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl !== currentUrl) {
+    window.history.replaceState({}, '', nextUrl);
+  }
 }
 
 function isRealtimeMode() {
@@ -996,6 +1952,8 @@ function applyRealtimeStateSnapshot(snapshot) {
     const keepNetwork = state.network;
     const keepJoinCode = state.joinCode;
     const keepMode = state.multiplayerMode;
+    const keepPanelMode = state.realtimePanelMode;
+    const keepEntryPage = state.entryPage;
     const keepInstructions = state.showInstructions;
     const keepSettings = state.showSettings;
     const incomingDeviceOrder = Array.isArray(snapshot._networkDeviceOrder) ? [...snapshot._networkDeviceOrder] : null;
@@ -1012,6 +1970,8 @@ function applyRealtimeStateSnapshot(snapshot) {
     }
     state.joinCode = keepJoinCode || state.gameCode;
     state.multiplayerMode = keepMode;
+    state.realtimePanelMode = keepPanelMode;
+    state.entryPage = keepEntryPage;
     state.showInstructions = keepInstructions;
     state.showSettings = keepSettings;
   } finally {
@@ -1055,7 +2015,49 @@ function broadcastRealtimeState(force = false) {
   });
 }
 
+function closeSocketSilently(socket) {
+  if (!socket) return;
+  try {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
+  } catch (error) {
+    // ignore socket handler cleanup errors
+  }
+  try {
+    socket.close();
+  } catch (error) {
+    // ignore socket close errors
+  }
+}
+
+function clearRealtimeAckTimer() {
+  if (realtime.ackTimerId) {
+    clearTimeout(realtime.ackTimerId);
+    realtime.ackTimerId = null;
+  }
+}
+
+function clearPendingRealtimeConnect() {
+  clearRealtimeAckTimer();
+  if (realtime.pendingTimerId) {
+    clearTimeout(realtime.pendingTimerId);
+    realtime.pendingTimerId = null;
+  }
+  if (realtime.pendingSocket && realtime.pendingSocket !== realtime.socket) {
+    closeSocketSilently(realtime.pendingSocket);
+  }
+  realtime.pendingSocket = null;
+}
+
+function cancelRealtimeConnectAttempt() {
+  realtime.connectAttemptId += 1;
+  clearPendingRealtimeConnect();
+}
+
 function disconnectRealtimeSession({ keepMode = true } = {}) {
+  cancelRealtimeConnectAttempt();
   clearBotChatTimers();
   if (realtime.socket) {
     try {
@@ -1068,15 +2070,65 @@ function disconnectRealtimeSession({ keepMode = true } = {}) {
   realtime.lastBroadcastPayload = '';
   state.network.connected = false;
   state.network.status = 'offline';
+  state.network.statusDetail = '';
   state.network.relayUrl = null;
   state.network.devices = [];
   state.network.deviceOrder = [];
   state.network.hostDeviceId = null;
-  if (!keepMode) state.multiplayerMode = 'passplay';
+  realtime.lastPersistedPayload = '';
+  // Explicitly leaving the room (not a transient reconnect): drop its cached
+  // snapshot so secret roles don't linger and a stale game can't be restored.
+  if (!keepMode) {
+    clearRoomCache(state.gameCode);
+    state.multiplayerMode = 'passplay';
+  }
 }
 
 function handleRealtimeMessage(message) {
   if (!message || typeof message !== 'object') return;
+
+  // Any reply from the relay means it is alive and acknowledging us; stop the
+  // post-open join watchdog.
+  clearRealtimeAckTimer();
+
+  if (message.type === 'joined_room') {
+    if (message.code) {
+      const code = sanitizeRoomCode(message.code);
+      state.gameCode = code;
+      state.joinCode = code;
+    }
+    state.network.connected = true;
+    state.network.status = 'connected';
+    state.network.statusDetail = state.network.isHost
+      ? 'Room created. Share the room code or fast link.'
+      : 'Joined room. Waiting for host sync.';
+    if (!state.network.isHost && state.entryPage === 'join' && state.screen === 'join_entry') {
+      state.screen = 'multi_lobby';
+    }
+    if (state.network.isHost) {
+      broadcastRealtimeState(true);
+    } else {
+      sendRealtimeMessage({ type: 'request_state', code: state.gameCode });
+    }
+    if (state.network.isHost && state.cachedHostSnapshot) {
+      applyRealtimeStateSnapshot(state.cachedHostSnapshot);
+      state.cachedHostSnapshot = null;
+      state.network.status = 'connected';
+      state.network.statusDetail = 'Room restored from cache. Sharing latest state.';
+      broadcastRealtimeState(true);
+      render();
+    }
+    return;
+  }
+
+  if (message.type === 'kicked') {
+    disconnectRealtimeSession({ keepMode: true });
+    state.network.status = 'error';
+    state.network.statusDetail = message.message ? String(message.message) : 'Host removed this device from the room.';
+    state.realtimePanelMode = 'join';
+    render();
+    return;
+  }
 
   if (message.type === 'presence') {
     updateRealtimePresence(message.devices, message.hostDeviceId);
@@ -1119,7 +2171,18 @@ function handleRealtimeMessage(message) {
   }
 
   if (message.type === 'error') {
+    cancelRealtimeConnectAttempt();
+    const activeSocket = realtime.socket;
+    realtime.socket = null;
+    closeSocketSilently(activeSocket);
+    state.network.connected = false;
     state.network.status = 'error';
+    state.network.statusDetail = message.message ? String(message.message) : 'Room service rejected this request.';
+    if (!state.network.isHost) {
+      state.network.hostDeviceId = null;
+      state.network.devices = [];
+      state.network.deviceOrder = [];
+    }
     render();
   }
 }
@@ -1128,18 +2191,26 @@ function connectRealtimeSession() {
   if (!isRealtimeMode()) return;
   if (state.network.connected) return;
 
+  cancelRealtimeConnectAttempt();
+  const connectAttemptId = realtime.connectAttemptId;
+  const isStaleAttempt = () => connectAttemptId !== realtime.connectAttemptId;
   const roomCode = sanitizeRoomCode(state.joinCode || state.gameCode);
   state.gameCode = roomCode;
   state.joinCode = roomCode;
   state.network.status = 'connecting';
+  state.network.statusDetail = state.network.isHost
+    ? 'Starting room connection...'
+    : 'Joining room...';
   render();
   const relayCandidates = getRelayCandidates();
   let candidateIndex = 0;
 
   const tryNextCandidate = () => {
+    if (isStaleAttempt()) return;
     if (candidateIndex >= relayCandidates.length) {
       state.network.status = 'offline';
       state.network.connected = false;
+      state.network.statusDetail = getRealtimeConnectionFailureMessage(state.network.isHost);
       realtime.socket = null;
       render();
       return;
@@ -1153,24 +2224,34 @@ function connectRealtimeSession() {
       tryNextCandidate();
       return;
     }
+    realtime.pendingSocket = socket;
 
     let opened = false;
     let advanced = false;
+    // A configured online relay (e.g. on a free tier) may cold-start, so give
+    // the initial dial more time on a public static host.
+    const dialTimeoutMs = isPublicStaticHost() ? 9000 : 1800;
     const timeoutId = setTimeout(() => {
+      if (isStaleAttempt()) return;
       if (opened || advanced) return;
       advanced = true;
+      clearPendingRealtimeConnect();
       try {
         socket.close();
       } catch (error) {
         // no-op
       }
       tryNextCandidate();
-    }, 1800);
+    }, dialTimeoutMs);
+    realtime.pendingTimerId = timeoutId;
 
     const advanceIfNeeded = () => {
+      if (isStaleAttempt()) return;
       if (opened || advanced) return;
       advanced = true;
       clearTimeout(timeoutId);
+      if (realtime.pendingSocket === socket) realtime.pendingSocket = null;
+      if (realtime.pendingTimerId === timeoutId) realtime.pendingTimerId = null;
       try {
         socket.close();
       } catch (error) {
@@ -1180,12 +2261,21 @@ function connectRealtimeSession() {
     };
 
     socket.onopen = () => {
+      if (isStaleAttempt()) {
+        closeSocketSilently(socket);
+        return;
+      }
       opened = true;
       advanced = true;
       clearTimeout(timeoutId);
+      if (realtime.pendingSocket === socket) realtime.pendingSocket = null;
+      if (realtime.pendingTimerId === timeoutId) realtime.pendingTimerId = null;
       realtime.socket = socket;
-      state.network.connected = true;
-      state.network.status = 'connected';
+      state.network.connected = false;
+      state.network.status = 'connecting';
+      state.network.statusDetail = state.network.isHost
+        ? 'Opening room...'
+        : 'Validating room code...';
       state.network.relayUrl = relayUrl;
       sendRealtimeMessage({
         type: 'join_room',
@@ -1194,15 +2284,25 @@ function connectRealtimeSession() {
         deviceName: state.network.deviceName,
         isHost: state.network.isHost
       });
-      if (state.network.isHost) {
-        broadcastRealtimeState(true);
-      } else {
-        sendRealtimeMessage({ type: 'request_state', code: roomCode });
-      }
+      // Watchdog: if the relay accepts the socket but never replies with
+      // joined_room / error, don't hang on "Validating room code..." forever.
+      clearRealtimeAckTimer();
+      realtime.ackTimerId = setTimeout(() => {
+        realtime.ackTimerId = null;
+        if (isStaleAttempt() || socket !== realtime.socket) return;
+        if (state.network.connected) return;
+        closeSocketSilently(socket);
+        if (realtime.socket === socket) realtime.socket = null;
+        state.network.status = 'error';
+        state.network.connected = false;
+        state.network.statusDetail = getRealtimeConnectionFailureMessage(state.network.isHost);
+        render();
+      }, 7000);
       render();
     };
 
     socket.onmessage = (event) => {
+      if (isStaleAttempt() || socket !== realtime.socket) return;
       let parsed;
       try {
         parsed = JSON.parse(event.data);
@@ -1213,16 +2313,27 @@ function connectRealtimeSession() {
     };
 
     socket.onerror = () => {
+      if (isStaleAttempt()) return;
       advanceIfNeeded();
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       clearTimeout(timeoutId);
+      if (realtime.pendingSocket === socket) realtime.pendingSocket = null;
+      if (realtime.pendingTimerId === timeoutId) realtime.pendingTimerId = null;
+      if (isStaleAttempt()) return;
       if (!opened) {
         advanceIfNeeded();
         return;
       }
+      if (socket !== realtime.socket) return;
       disconnectRealtimeSession();
+      const kickedByHost = Number(event?.code) === 4001 || /kicked/i.test(String(event?.reason || ''));
+      if (kickedByHost) {
+        state.network.status = 'error';
+        state.network.statusDetail = 'Host removed this device from the room.';
+        state.realtimePanelMode = 'join';
+      }
       render();
     };
   };
@@ -1641,6 +2752,11 @@ function canHostManageBots() {
   return !isRealtimeMode() || state.network.isHost;
 }
 
+function canEditLobbySetup() {
+  if (!isRealtimeMode()) return true;
+  return state.network.isHost;
+}
+
 function sortPlayersByDeviceOrder() {
   const orderedDevices = state.network.deviceOrder || [];
   if (!isRealtimeMode() || orderedDevices.length === 0) return;
@@ -1736,6 +2852,12 @@ function addPlayer(name, deviceId = null) {
 }
 
 function removePlayer(id) {
+  if (isRealtimeMode() && !state.network.isHost) {
+    const target = state.players.find(player => player.id === id);
+    if (!target) return;
+    const deviceId = target.deviceId || state.network.deviceId;
+    if (deviceId !== state.network.deviceId) return;
+  }
   state.players = state.players.filter(p => p.id !== id);
   updateRoleConfig();
   render();
@@ -1808,7 +2930,26 @@ function moveDeviceToIndex(deviceId, targetDeviceId) {
   render();
 }
 
+function removeDevice(deviceId) {
+  if (!isRealtimeMode()) return;
+  if (!state.network.isHost) return;
+  if (!deviceId || deviceId === state.network.deviceId) return;
+
+  state.players = state.players.filter(player => player.deviceId !== deviceId);
+  state.network.deviceOrder = (state.network.deviceOrder || []).filter(id => id !== deviceId);
+  state.network.devices = (state.network.devices || []).filter(device => device.deviceId !== deviceId);
+  sendRealtimeMessage({
+    type: 'kick_device',
+    code: state.gameCode,
+    deviceId
+  });
+  state.network.statusDetail = 'Device removed from room by host.';
+  updateRoleConfig();
+  render();
+}
+
 function adjustRole(role, delta) {
+  if (!canEditLobbySetup()) return;
   const newValue = Math.max(0, (state.roleConfig[role] || 0) + delta);
   const allPlayers = getAllPlayers();
   const otherTotal = getTotalRoles() - (state.roleConfig[role] || 0);
@@ -1888,6 +3029,7 @@ function beginNightPhase() {
 // -----------------------------------------------------------------------------
 
 function startGame() {
+  if (!canEditLobbySetup()) return;
   if (!canStart()) return;
 
   if (state.screen === 'solo_lobby') {
@@ -1946,6 +3088,8 @@ function startGame() {
   state.selectedSave = null;
   state.selectedVote = null;
   state.discussionUnlockAt = 0;
+  state.showBigRoomCode = false;
+  state.selectedMapFloor = null;
   state.nightPlans = {};
   state.snoopAssignments = {};
   state.snoopersByTarget = {};
@@ -1985,6 +3129,10 @@ function startGame() {
 // -----------------------------------------------------------------------------
 
 function botMakeDecisions(phase) {
+  // Ignore a stale deferred call after the phase has already advanced (e.g. a
+  // human finished voting and processVote ran before this timer fired). Without
+  // this guard, late bot writes could leak into the next round.
+  if (state.gamePhase !== phase) return;
   const alivePlayers = getAlivePlayers();
   const aliveBots = alivePlayers.filter(p => p.isBot);
 
@@ -2011,6 +3159,7 @@ function botMakeDecisions(phase) {
   if (phase === 'night') {
     const mafiaBots = aliveBots.filter(b => b.role === 'mafia');
     mafiaBots.forEach(bot => {
+      if (state.mafiaVotes[bot.id]) return; // already chose a target this night
       const view = getVisibleTargetsForMafia(bot.id, alivePlayers);
       const targets = view.targets.length > 0
         ? view.targets
@@ -2032,6 +3181,7 @@ function botMakeDecisions(phase) {
     aliveBots
       .filter(bot => bot.role !== 'mafia')
       .forEach(bot => {
+        if (state.nightAwareness[bot.id]) return; // already chose a stance this night
         const pick = randomChoice(NIGHT_AWARENESS_OPTIONS) || NIGHT_AWARENESS_OPTIONS[1];
         state.nightAwareness[bot.id] = pick.id;
       });
@@ -2049,6 +3199,7 @@ function botMakeDecisions(phase) {
 
   if (phase === 'vote') {
     aliveBots.forEach(bot => {
+      if (state.votes[bot.id]) return; // already voted this round
       const targets = alivePlayers.filter(p =>
         p.id !== bot.id && (bot.role === 'mafia' ? p.role !== 'mafia' : true)
       );
@@ -2058,11 +3209,27 @@ function botMakeDecisions(phase) {
   }
 }
 
+// Make sure every alive bot has a vote for the current round. The normal path
+// schedules bot votes on a timer, but a human can confirm the final vote before
+// that timer fires; calling this synchronously before tallying prevents bot
+// votes from being silently dropped.
+function ensureBotVotes() {
+  if (state.gamePhase === 'vote') botMakeDecisions('vote');
+}
+
+// Same race as ensureBotVotes, for the night phase: a human night actor can
+// finish before the deferred bot timer fires, so guarantee bot Mafia targets
+// and stances are recorded before processNight tallies the kill.
+function ensureBotNightDecisions() {
+  if (state.gamePhase === 'night') botMakeDecisions('night');
+}
+
 // -----------------------------------------------------------------------------
 // NIGHT PHASE PROCESSING
 // -----------------------------------------------------------------------------
 
 function processNight() {
+  ensureBotNightDecisions();
   prepareNightContext();
 
   const voteCounts = {};
@@ -2107,7 +3274,7 @@ function processNight() {
     const awarenessBoost = Number(awarenessChoice?.exposureMod || 0);
     const effectiveIntel = clamp01(getPlanIntelChance(player, plan) + awarenessBoost);
     const intel = getIntelFallback(player);
-    const noiseWeight = clamp01(resolvedMethod.noise || 0.3);
+    const noiseWeight = getAdjustedDisturbance(resolvedMethod);
     const distanceToAttack = targetNode ? getGraphDistance(playerNode, targetNode) : Infinity;
     const witnessedFromNearby = targetId && player.id !== targetId && distanceToAttack <= 1;
 
@@ -2224,7 +3391,7 @@ function processMorning() {
       state.players = state.players.map(p => p.id === target.id ? { ...p, alive: false } : p);
     }
     SoundEffects.playDeath();
-    deathMessage = `${target.name} was found dead.\n\nCause of death: ${method.deathLabel} (${method.name}).\nDisturbance level: ${Math.round((method.noise || 0) * 100)}%.\n\nThey were the ${getRoleDisplayName(target.role)}.`;
+    deathMessage = `${target.name} was found dead.\n\nCause of death: ${method.deathLabel} (${method.name}).\nDisturbance level: ${Math.round(getAdjustedDisturbance(method) * 100)}%.\n\nThey were the ${getRoleDisplayName(target.role)}.`;
     state.finalDeath = {
       type: 'night',
       victim: target.name,
@@ -2297,6 +3464,7 @@ function afterAnnouncement() {
 // -----------------------------------------------------------------------------
 
 function processVote() {
+  ensureBotVotes();
   const allPlayers = getAllPlayers();
   const voteCounts = {};
 
@@ -2405,13 +3573,10 @@ function evaluateWinCondition() {
   const townAlive = alivePlayers.filter(p => p.role !== 'mafia').length;
   const humansAlive = alivePlayers.filter(p => !p.isBot).length;
 
-  if (state.screen === 'game' && humansAlive === 0) {
-    return {
-      winner: 'mafia',
-      reason: 'All human-controlled players were eliminated.'
-    };
-  }
-
+  // Resolve a decisive game outcome FIRST. Otherwise, when the last living
+  // human happens to be the last Mafia who just got eliminated, both
+  // "all mafia dead" and "all humans eliminated" are true at once and the
+  // humans-eliminated fallback would wrongly steal Town's legitimate win.
   if (mafiaAlive === 0) {
     return {
       winner: 'town',
@@ -2426,6 +3591,14 @@ function evaluateWinCondition() {
     };
   }
 
+  // Fallback (mainly solo): no human-controlled players remain to keep playing.
+  if (state.screen === 'game' && humansAlive === 0) {
+    return {
+      winner: 'mafia',
+      reason: 'All human-controlled players were eliminated.'
+    };
+  }
+
   return null;
 }
 
@@ -2435,6 +3608,7 @@ function finalizeGameOver() {
   state.winReason = state.pendingWin.reason;
   state.pendingWin = null;
   state.gamePhase = 'gameover';
+  if (isRealtimeMode()) clearRoomCache(state.gameCode);
   clearNarratorTurn();
   addNarrationLog(`Final outcome: ${state.winReason}`, 'gameover');
   if (state.winner === 'town') SoundEffects.playVictory();
@@ -2459,7 +3633,7 @@ function shouldRunDoctorPhase() {
 
 function getDoctorSaveChance(method, attackCount = 1) {
   const attackerPenalty = Math.max(0, attackCount - 1) * 0.23;
-  const methodPenalty = (method?.cureDifficulty || 0.6) * 0.3;
+  const methodPenalty = getAdjustedCureDifficulty(method) * 0.3;
   return clamp01(0.74 - methodPenalty - attackerPenalty);
 }
 
@@ -2506,32 +3680,70 @@ function completeDoctorPhase() {
 }
 
 function normalizeCodeFromInput(raw) {
-  const code = sanitizeRoomCode(raw || state.gameCode);
-  state.gameCode = code;
-  state.joinCode = code;
-}
-
-function regenerateRoomCode() {
-  const next = Math.random().toString(36).slice(2, 8).toUpperCase();
-  normalizeCodeFromInput(next);
+  const cleaned = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  if (!cleaned) {
+    state.gameCode = '';
+    state.joinCode = '';
+    return;
+  }
+  state.gameCode = cleaned;
+  state.joinCode = cleaned;
 }
 
 function applyRealtimePanelMode(mode) {
-  state.realtimePanelMode = mode === 'join' ? 'join' : 'host';
-  if (state.realtimePanelMode === 'host') {
-    state.network.isHost = true;
+  const normalizedMode = isHostOnlyPage()
+    ? 'host'
+    : isJoinOnlyPage()
+      ? 'join'
+      : (mode === 'join' ? 'join' : 'host');
+  state.realtimePanelMode = normalizedMode;
+  state.network.isHost = state.realtimePanelMode !== 'join';
+  if (state.realtimePanelMode === 'host' && !state.joinCode) {
+    state.joinCode = state.gameCode;
+  }
+  if (state.realtimePanelMode === 'join') {
+    state.showBigRoomCode = false;
+  }
+  if (!state.network.connected) {
+    state.network.statusDetail = getIdleRealtimeStatusDetail(state.network.isHost);
   }
 }
 
 function applyJoinCodeInput(value) {
+  if (state.network.connected && !state.network.isHost) return;
   normalizeCodeFromInput(value);
 }
 
-function hostRealtimeRoom() {
+async function hostRealtimeRoom() {
   applyRealtimePanelMode('host');
   state.multiplayerMode = 'realtime';
   state.network.isHost = true;
-  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
+  if (realtime.socket || state.network.status === 'connecting') disconnectRealtimeSession({ keepMode: true });
+  state.network.status = 'connecting';
+  state.network.statusDetail = 'Preparing room service...';
+  render();
+  // On a public static host (e.g. GitHub Pages) there is no local backend to
+  // start; connect straight to the configured online relay.
+  if (isPublicStaticHost()) {
+    if (!getConfiguredRelayUrl()) {
+      state.network.status = 'error';
+      state.network.statusDetail = 'Online multiplayer is not set up for this site yet (no relay configured). Solo and single-device pass-and-play still work.';
+      render();
+      return;
+    }
+    state.network.statusDetail = 'Connecting to online room service...';
+    render();
+    await warmUpConfiguredRelay();
+    connectRealtimeSession();
+    return;
+  }
+  const backendReady = await ensureBackendForHostClick();
+  if (!backendReady) {
+    state.network.status = 'error';
+    state.network.statusDetail = getRealtimeConnectionFailureMessage(true);
+    render();
+    return;
+  }
   connectRealtimeSession();
 }
 
@@ -2539,7 +3751,27 @@ function joinRealtimeRoom() {
   applyRealtimePanelMode('join');
   state.multiplayerMode = 'realtime';
   state.network.isHost = false;
-  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
+  const joinCode = sanitizeRoomCode(state.joinCode || state.gameCode, '');
+  if (!joinCode) {
+    state.network.status = 'error';
+    state.network.statusDetail = 'Enter a room code, then press Join Game.';
+    return;
+  }
+  if (isPublicStaticHost() && !getConfiguredRelayUrl()) {
+    state.network.status = 'error';
+    state.network.statusDetail = 'Online multiplayer is not set up for this site yet (no relay configured). Solo and single-device pass-and-play still work.';
+    render();
+    return;
+  }
+  state.gameCode = joinCode;
+  state.joinCode = joinCode;
+  if (realtime.socket || state.network.status === 'connecting') disconnectRealtimeSession({ keepMode: true });
+  if (isPublicStaticHost() && getConfiguredRelayUrl()) {
+    state.network.status = 'connecting';
+    render();
+    warmUpConfiguredRelay().then(() => connectRealtimeSession());
+    return;
+  }
   connectRealtimeSession();
 }
 
@@ -2548,7 +3780,7 @@ function applyRealtimeDeviceName(value) {
   if (!next) return;
   state.network.deviceName = next.slice(0, 32);
   try {
-    localStorage.setItem('mafia_device_name', state.network.deviceName);
+    localStorage.setItem(DEVICE_NAME_STORAGE_KEY, state.network.deviceName);
   } catch (error) {
     // ignore
   }
@@ -2574,12 +3806,43 @@ function renamePlayer(id, value) {
 }
 
 function toggleMap() {
-  state.showMap = !state.showMap;
+  const nextVisible = !state.showMap;
+  state.showMap = nextVisible;
+  if (!nextVisible) {
+    state.selectedMapFloor = null;
+  } else {
+    const floors = state.selectedStory?.floorplan?.floors;
+    if (Array.isArray(floors) && floors.length > 0) {
+      const hasExisting = floors.some(floor => floor.id === state.selectedMapFloor);
+      if (!hasExisting) state.selectedMapFloor = floors[0].id;
+    } else {
+      state.selectedMapFloor = null;
+    }
+  }
   render();
 }
 
 function closeMap() {
   state.showMap = false;
+  state.selectedMapFloor = null;
+  render();
+}
+
+function setMapFloor(floorId) {
+  const floors = state.selectedStory?.floorplan?.floors || [];
+  if (!floors.some(floor => floor.id === floorId)) return;
+  state.selectedMapFloor = floorId;
+  render();
+}
+
+function showBigRoomCode() {
+  if (!state.gameCode) return;
+  state.showBigRoomCode = true;
+  render();
+}
+
+function hideBigRoomCode() {
+  state.showBigRoomCode = false;
   render();
 }
 
@@ -2637,7 +3900,7 @@ function reorderDeviceByDrop(sourceDeviceId, targetDeviceId) {
 
 function initializeDeviceNameFromContext() {
   try {
-    const stored = localStorage.getItem('mafia_device_name');
+    const stored = localStorage.getItem(DEVICE_NAME_STORAGE_KEY);
     if (stored && stored.trim()) {
       state.network.deviceName = stored.trim().slice(0, 32);
     }
@@ -2647,19 +3910,51 @@ function initializeDeviceNameFromContext() {
 }
 
 initializeDeviceNameFromContext();
+tryRestoreCachedRoomFromParams();
+refreshShareHints();
 if (!state.network.deviceName.trim()) state.network.deviceName = 'Device 1';
 state.network.deviceName = state.network.deviceName.slice(0, 32);
-if (window.location.pathname.endsWith('/join.html')) state.realtimePanelMode = 'join';
-if (JOIN_CODE_PARAM) {
-  normalizeCodeFromInput(JOIN_CODE_PARAM);
+if (IS_SOLO_PAGE) {
+  state.screen = 'solo_lobby';
+  state.multiplayerMode = 'passplay';
+  state.autoJoinPending = false;
+} else if (IS_JOIN_PAGE) {
+  if (INITIAL_JOIN_CODE) normalizeCodeFromInput(INITIAL_JOIN_CODE);
+  state.screen = 'join_entry';
   state.multiplayerMode = 'realtime';
   state.realtimePanelMode = 'join';
   state.network.isHost = false;
+  state.autoJoinPending = Boolean(INITIAL_JOIN_CODE);
+  if (!INITIAL_JOIN_CODE) {
+    state.gameCode = '';
+    state.joinCode = '';
+  }
+} else if (IS_HOST_PAGE || (INITIAL_IS_HOST_ROLE && INITIAL_ROOM_CODE && !INITIAL_IS_JOIN_ROLE)) {
+  if (INITIAL_ROOM_CODE) normalizeCodeFromInput(INITIAL_ROOM_CODE);
+  state.screen = 'multi_lobby';
+  state.multiplayerMode = 'realtime';
+  state.realtimePanelMode = 'host';
+  state.network.isHost = true;
+  state.autoJoinPending = false;
+} else if (INITIAL_IS_JOIN_ROLE || INITIAL_JOIN_CODE) {
+  if (INITIAL_JOIN_CODE) normalizeCodeFromInput(INITIAL_JOIN_CODE);
+  state.screen = 'multi_lobby';
+  state.multiplayerMode = 'realtime';
+  state.realtimePanelMode = 'join';
+  state.network.isHost = false;
+  state.autoJoinPending = Boolean(INITIAL_JOIN_CODE);
+} else if (SCREEN_PARAM === 'multi') {
+  state.screen = 'multi_lobby';
+  state.multiplayerMode = 'passplay';
+} else if (SCREEN_PARAM === 'multi_entry') {
+  state.screen = 'multi_entry';
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
     try {
-      localStorage.setItem('mafia_device_name', state.network.deviceName || 'Device 1');
+      localStorage.setItem(DEVICE_NAME_STORAGE_KEY, state.network.deviceName || 'Device 1');
+      localStorage.setItem(DEVICE_ID_STORAGE_KEY, state.network.deviceId || getStoredDeviceId());
+      persistRoomStateCache();
     } catch (error) {
       // ignore
     }
@@ -2676,13 +3971,37 @@ if (typeof window !== 'undefined') {
 // EVENT HANDLERS (Global)
 // -----------------------------------------------------------------------------
 
+window.goToHomePage = () => {
+  const homeUrl = getPageUrl('index.html') || 'index.html';
+  window.location.href = homeUrl;
+};
+
+window.goToMultiEntryPage = () => {
+  const base = getPageUrl('index.html') || 'index.html';
+  try {
+    const target = new URL(base, window.location.href);
+    target.searchParams.set('screen', 'multi_entry');
+    window.location.href = target.toString();
+  } catch (error) {
+    window.location.href = 'index.html?screen=multi_entry';
+  }
+};
+
+window.goToHostPage = () => {
+  window.location.href = getPageUrl('host.html');
+};
+
+window.goToJoinPage = () => {
+  window.location.href = getPageUrl('join.html');
+};
+
 window.goToSetup = () => {
   clearAutoAdvance();
   clearBotChatTimers();
   clearDeathAnimation();
   disconnectRealtimeSession({ keepMode: Boolean(state.joinCode) });
   if (!state.joinCode) state.multiplayerMode = 'passplay';
-  state.screen = 'setup';
+  applyEntryScreenDefaults();
   state.bots = [];
   state.players = [];
   state.chatMessages = [];
@@ -2698,6 +4017,8 @@ window.goToSetup = () => {
   state.selectedVote = null;
   state.discussionUnlockAt = 0;
   state.showMap = false;
+  state.selectedMapFloor = null;
+  state.showBigRoomCode = false;
   state.lastNarratorPromptKey = null;
   state.pendingNarratorPhase = null;
   state.narrationLog = [];
@@ -2707,24 +4028,58 @@ window.goToSetup = () => {
 };
 
 window.goToSoloLobby = () => {
+  if (isHostOnlyPage()) {
+    window.goToHomePage();
+    return;
+  }
+  if (state.entryPage === 'index') {
+    window.location.href = getPageUrl('solo.html');
+    return;
+  }
   disconnectRealtimeSession({ keepMode: false });
   state.multiplayerMode = 'passplay';
+  state.showBigRoomCode = false;
   state.screen = 'solo_lobby';
   updateRoleConfig();
   render();
 };
 
 window.goToMultiLobby = () => {
-  state.screen = 'multi_lobby';
-  if (state.realtimePanelMode === 'join' || state.joinCode) {
-    state.multiplayerMode = 'realtime';
-    state.network.isHost = false;
-    state.gameCode = sanitizeRoomCode(state.joinCode || state.gameCode);
-    state.joinCode = state.gameCode;
+  refreshShareHints();
+  if (state.entryPage === 'index') {
+    state.screen = 'multi_entry';
+    state.showBigRoomCode = false;
+    render();
+    return;
   }
+  state.screen = 'multi_lobby';
+  if (isJoinOnlyPage()) {
+    state.multiplayerMode = 'realtime';
+    state.realtimePanelMode = 'join';
+    state.network.isHost = false;
+    if (state.joinCode) {
+      state.gameCode = sanitizeRoomCode(state.joinCode, state.gameCode || '');
+    }
+  } else if (isHostOnlyPage()) {
+    state.multiplayerMode = 'realtime';
+    state.realtimePanelMode = 'host';
+    state.network.isHost = true;
+    state.joinCode = state.joinCode || state.gameCode;
+  } else if (state.autoJoinPending && state.joinCode) {
+    state.multiplayerMode = 'realtime';
+    state.realtimePanelMode = 'join';
+    state.network.isHost = false;
+    state.gameCode = sanitizeRoomCode(state.joinCode, state.gameCode);
+  } else {
+    state.multiplayerMode = 'realtime';
+    state.realtimePanelMode = 'host';
+    state.network.isHost = true;
+    state.joinCode = state.joinCode || state.gameCode;
+  }
+  state.showBigRoomCode = false;
   maybeAutoAssignDeviceName(state.network.devices);
   updateRoleConfig();
-  if (isRealtimeMode() && !state.network.connected && state.realtimePanelMode === 'join' && state.joinCode) {
+  if (isRealtimeMode() && !state.network.connected && state.realtimePanelMode === 'join' && state.joinCode && state.autoJoinPending) {
     connectRealtimeSession();
   }
   render();
@@ -2767,7 +4122,8 @@ window.toggleSetting = (key) => {
 };
 
 window.setNarratorMode = (mode) => {
-  state.settings.narratorMode = mode === 'human' ? 'human' : 'auto';
+  const requested = mode === 'human' ? 'human' : 'auto';
+  state.settings.narratorMode = (requested === 'human' && isSoloOnlyPage()) ? 'auto' : requested;
   state.lastNarratorPromptKey = null;
   if (state.settings.narratorMode === 'human') {
     primeNarratorTurn(state.gamePhase);
@@ -2785,6 +4141,13 @@ window.setNarratorTone = (tone) => {
   render();
 };
 
+window.setEnvironmentProfile = (profileId) => {
+  const selected = ENVIRONMENT_PROFILES.find(profile => profile.id === profileId);
+  if (!selected) return;
+  state.settings.environmentProfile = selected.id;
+  render();
+};
+
 window.setBotDelay = (ms) => {
   const value = Number(ms);
   if (Number.isNaN(value)) return;
@@ -2792,14 +4155,49 @@ window.setBotDelay = (ms) => {
   render();
 };
 
+window.setNetworkingMode = (mode) => {
+  const normalized = String(mode || '').trim().toLowerCase();
+  if (normalized === 'lan') {
+    if (!isLanShareModeAvailable()) return;
+    state.settings.networkShareMode = 'lan';
+  } else if (normalized === 'custom') {
+    state.settings.networkShareMode = 'custom';
+  } else {
+    state.settings.networkShareMode = 'origin';
+  }
+  render();
+};
+
+window.setCustomShareBaseUrl = (value) => {
+  state.settings.customShareBaseUrl = String(value || '').trim();
+};
+
+window.setCustomRelayUrl = (value) => {
+  state.settings.customRelayUrl = String(value || '').trim();
+};
+
 window.setMultiplayerMode = (mode) => {
+  if (isHostOnlyPage() || isJoinOnlyPage()) {
+    state.multiplayerMode = 'realtime';
+    applyRealtimePanelMode(isHostOnlyPage() ? 'host' : 'join');
+    render();
+    return;
+  }
   const nextMode = mode === 'realtime' ? 'realtime' : 'passplay';
   state.multiplayerMode = nextMode;
   if (nextMode === 'realtime') {
-    if (!state.realtimePanelMode) state.realtimePanelMode = 'host';
-    state.network.isHost = state.realtimePanelMode !== 'join';
-    if (state.realtimePanelMode === 'join' && state.joinCode && !state.network.connected) connectRealtimeSession();
+    if (isHostOnlyPage()) {
+      applyRealtimePanelMode('host');
+      state.network.isHost = true;
+      state.joinCode = state.joinCode || state.gameCode;
+    } else if (!state.realtimePanelMode) {
+      state.realtimePanelMode = 'host';
+      state.network.isHost = true;
+    } else {
+      state.network.isHost = state.realtimePanelMode !== 'join';
+    }
   } else {
+    state.showBigRoomCode = false;
     disconnectRealtimeSession({ keepMode: true });
   }
   render();
@@ -2807,10 +4205,27 @@ window.setMultiplayerMode = (mode) => {
 
 window.setRealtimeDeviceName = (value) => {
   applyRealtimeDeviceName(value);
+};
+
+window.commitRealtimeDeviceName = () => {
+  if (isRealtimeMode() && state.network.connected) {
+    sendRealtimeMessage({
+      type: 'join_room',
+      code: state.gameCode,
+      deviceId: state.network.deviceId,
+      deviceName: state.network.deviceName,
+      isHost: state.network.isHost
+    });
+  }
   render();
 };
 
 window.setRealtimePanelMode = (mode) => {
+  if (isHostOnlyPage() || isJoinOnlyPage()) {
+    applyRealtimePanelMode(isHostOnlyPage() ? 'host' : 'join');
+    render();
+    return;
+  }
   applyRealtimePanelMode(mode);
   render();
 };
@@ -2820,13 +4235,8 @@ window.setJoinCodeInput = (value) => {
   render();
 };
 
-window.regenerateRoomCode = () => {
-  regenerateRoomCode();
-  render();
-};
-
-window.connectAsHost = () => {
-  hostRealtimeRoom();
+window.connectAsHost = async () => {
+  await hostRealtimeRoom();
   render();
 };
 
@@ -2843,6 +4253,7 @@ window.disconnectRealtime = () => {
 window.addBot = addBot;
 window.removeBot = removeBot;
 window.renameBot = renameBot;
+window.removeDevice = removeDevice;
 window.removePlayer = removePlayer;
 window.renamePlayer = renamePlayer;
 window.movePlayer = movePlayer;
@@ -2854,6 +4265,9 @@ window.clearAutoAdvance = clearAutoAdvance;
 window.getVisibleTargetsForMafia = getVisibleTargetsForMafia;
 window.toggleMap = toggleMap;
 window.closeMap = closeMap;
+window.setMapFloor = setMapFloor;
+window.showBigRoomCode = showBigRoomCode;
+window.hideBigRoomCode = hideBigRoomCode;
 
 window.addPlayerFromInput = (nameOverride = null, deviceIdOverride = null) => {
   const input = document.getElementById('newPlayerInput');
@@ -2874,13 +4288,16 @@ window.addPlayerFromInput = (nameOverride = null, deviceIdOverride = null) => {
 };
 
 window.selectPreset = (id) => {
+  if (!canEditLobbySetup()) return;
   state.selectedPreset = ROLE_PRESETS.find(p => p.id === id) || ROLE_PRESETS[0];
   updateRoleConfig();
   render();
 };
 
 window.selectStory = (id) => {
+  if (!canEditLobbySetup()) return;
   state.selectedStory = STORY_PRESETS.find(s => s.id === id) || STORY_PRESETS[0];
+  state.selectedMapFloor = null;
   render();
 };
 
@@ -2903,31 +4320,55 @@ function fallbackCopyText(text) {
   }
 }
 
-window.copyLink = async () => {
-  const shareUrl = getShareJoinUrl(state.gameCode);
-  const fallbackCode = sanitizeRoomCode(state.gameCode);
-  const textToCopy = shareUrl || fallbackCode;
+async function copyTextWithFeedback(text, buttonId = '', successText = '✓ Copied!') {
+  const value = String(text || '').trim();
+  if (!value) return false;
   let copied = false;
   try {
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(textToCopy);
+      await navigator.clipboard.writeText(value);
       copied = true;
     }
   } catch (error) {
-    copied = fallbackCopyText(textToCopy);
+    copied = fallbackCopyText(value);
   }
   if (!copied) {
-    fallbackCopyText(textToCopy);
+    copied = fallbackCopyText(value);
   }
-  const btn = document.getElementById('copyBtn');
+  const btn = buttonId ? document.getElementById(buttonId) : null;
   if (btn) {
-    btn.textContent = copied ? (shareUrl ? '✓ Link Copied!' : '✓ Code Copied!') : 'Copied best-effort';
+    btn.textContent = copied ? successText : 'Copy failed';
     btn.classList.add('copied');
     setTimeout(() => {
       btn.textContent = '📋 Copy';
       btn.classList.remove('copied');
     }, 2000);
   }
+  return copied;
+}
+
+window.copyJoinPortal = async (buttonId = 'copyPortalBtn') => {
+  return copyTextWithFeedback(getJoinPortalUrl(), buttonId, '✓ Copied!');
+};
+
+window.copyLink = async (buttonId = 'copyFastLinkBtn') => {
+  const shareUrl = getShareJoinUrl(state.gameCode);
+  const fallbackCode = sanitizeRoomCode(state.gameCode);
+  return copyTextWithFeedback(shareUrl || fallbackCode, buttonId, shareUrl ? '✓ Link Copied!' : '✓ Code Copied!');
+};
+
+window.copyRoomCode = async (buttonId = 'copyRoomCodeBtn') => {
+  return copyTextWithFeedback(sanitizeRoomCode(state.gameCode), buttonId, '✓ Code Copied!');
+};
+
+window.copyQrShortcut = async () => {
+  const shareUrl = getShareJoinUrl(state.gameCode);
+  const fallbackCode = sanitizeRoomCode(state.gameCode);
+  return copyTextWithFeedback(shareUrl || fallbackCode, '', shareUrl ? '✓ Link Copied!' : '✓ Code Copied!');
+};
+
+window.copyTextValue = async (text, buttonId = 'copyPortalBtn') => {
+  return copyTextWithFeedback(text, buttonId, '✓ Copied!');
 };
 
 window.startGame = startGame;
@@ -2938,7 +4379,7 @@ window.newGame = () => {
   clearDeathAnimation();
   disconnectRealtimeSession({ keepMode: Boolean(state.joinCode) });
   if (!state.joinCode) state.multiplayerMode = 'passplay';
-  state.screen = 'setup';
+  applyEntryScreenDefaults();
   state.players = [];
   state.bots = [];
   state.winner = null;
@@ -2971,6 +4412,8 @@ window.newGame = () => {
   state.selectedVote = null;
   state.pendingWin = null;
   state.showMap = false;
+  state.selectedMapFloor = null;
+  state.showBigRoomCode = false;
   state.discussionUnlockAt = 0;
   state.lastNarratorPromptKey = null;
   state.pendingNarratorPhase = null;
@@ -3331,8 +4774,36 @@ function installRealtimeActionWrappers() {
 
 installRealtimeActionWrappers();
 
+function finalizeAfterRender() {
+  syncUrlState();
+  if (isRealtimeMode()) persistRoomStateCache();
+}
+
 window.afterRender = () => {
+  if (state.autoJoinPending && state.joinCode) {
+    state.autoJoinPending = false;
+    if (state.screen !== 'multi_lobby') {
+      if (typeof window.goToMultiLobby === 'function') {
+        window.goToMultiLobby();
+      } else {
+        state.screen = 'multi_lobby';
+        state.multiplayerMode = 'realtime';
+        state.realtimePanelMode = 'join';
+        state.network.isHost = false;
+        updateRoleConfig();
+        render();
+      }
+      finalizeAfterRender();
+      return;
+    }
+    if (isRealtimeMode() && !state.network.connected && state.realtimePanelMode === 'join') {
+      connectRealtimeSession();
+      finalizeAfterRender();
+      return;
+    }
+  }
   if (isRealtimeMode() && state.network.connected && state.network.isHost && !realtime.applyingRemoteState) {
     broadcastRealtimeState();
   }
+  finalizeAfterRender();
 };

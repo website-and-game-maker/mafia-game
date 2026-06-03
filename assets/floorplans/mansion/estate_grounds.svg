@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
+  <rect width="960" height="620" fill="#052e16"/>
+  <rect x="50" y="50" width="860" height="520" rx="26" fill="#14532d" stroke="#86efac" stroke-width="3"/>
+  <text x="70" y="95" fill="#dcfce7" font-size="30" font-family="Georgia">Blackwood Estate - Grounds</text>
+
+  <rect x="120" y="170" width="300" height="150" rx="14" fill="#365314" stroke="#bef264"/>
+  <text x="150" y="245" fill="#ecfccb" font-size="28" font-family="Georgia">Veranda Porch</text>
+  <text x="150" y="275" fill="#d9f99d" font-size="17" font-family="Georgia">Gray note: balcony view of moors</text>
+
+  <rect x="520" y="220" width="290" height="170" rx="14" fill="#166534" stroke="#bbf7d0"/>
+  <text x="560" y="300" fill="#dcfce7" font-size="28" font-family="Georgia">Garden Path</text>
+  <text x="560" y="332" fill="#bbf7d0" font-size="17" font-family="Georgia">Route to foyer and porch steps</text>
+
+  <path d="M422 255 L520 285" stroke="#fef08a" stroke-width="5"/>
+</svg>

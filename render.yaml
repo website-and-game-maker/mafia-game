@@ -1,0 +1,27 @@
+# Render Blueprint for the Mafia realtime relay (multi-device online multiplayer).
+#
+# GitHub Pages serves the static game; this service runs the WebSocket relay that
+# connects devices to each other. Deploy it once and point the game at it:
+#
+#   1. Go to https://dashboard.render.com  ->  New  ->  Blueprint
+#   2. Connect the GitHub repo (PyCoder42/mafia-game) and apply this blueprint.
+#   3. When it finishes, copy the service URL (e.g. https://mafia-relay.onrender.com).
+#   4. In scripts/config.js set:
+#         productionRelayUrl: 'wss://mafia-relay.onrender.com'
+#      (use wss://, and the same host as the https:// service URL).
+#   5. Commit + push — GitHub Pages picks it up and online multiplayer works.
+#
+# Render injects $PORT; scripts/realtime_server.py binds 0.0.0.0:$PORT and answers
+# HTTP GET /health with 200 for the health check. The free plan sleeps after
+# inactivity; the client warms it up (HTTP /health ping) before connecting.
+services:
+  - type: web
+    name: mafia-relay
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/realtime_server.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.4"

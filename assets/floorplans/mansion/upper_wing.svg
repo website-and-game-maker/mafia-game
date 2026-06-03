@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
+  <rect width="960" height="620" fill="#111827"/>
+  <rect x="40" y="40" width="880" height="540" rx="24" fill="#1f2937" stroke="#64748b" stroke-width="3"/>
+  <text x="60" y="85" fill="#f8fafc" font-size="30" font-family="Georgia">Blackwood Estate - Upper Wing</text>
+
+  <rect x="90" y="130" width="310" height="170" rx="14" fill="#334155" stroke="#cbd5e1"/>
+  <text x="110" y="185" fill="#e2e8f0" font-size="28" font-family="Georgia">Bedroom Wing</text>
+  <text x="110" y="220" fill="#94a3b8" font-size="18" font-family="Georgia">Balcony doors face Veranda Porch</text>
+
+  <rect x="430" y="130" width="210" height="170" rx="14" fill="#312e81" stroke="#c4b5fd"/>
+  <text x="450" y="190" fill="#ddd6fe" font-size="25" font-family="Georgia">Hallway</text>
+  <text x="450" y="222" fill="#a5b4fc" font-size="17" font-family="Georgia">Main night traffic spine</text>
+
+  <rect x="670" y="130" width="200" height="170" rx="14" fill="#1e293b" stroke="#7dd3fc"/>
+  <text x="690" y="190" fill="#bae6fd" font-size="25" font-family="Georgia">Library Stacks</text>
+  <text x="690" y="222" fill="#7dd3fc" font-size="17" font-family="Georgia">Quiet snoop vantage</text>
+
+  <path d="M402 214 L428 214" stroke="#e2e8f0" stroke-width="4"/>
+  <path d="M642 214 L668 214" stroke="#e2e8f0" stroke-width="4"/>
+</svg>

@@ -1,0 +1,402 @@
+#!/usr/bin/env node
+
+const { chromium } = require('playwright');
+
+const BASE_URL = process.env.MAFIA_BASE_URL || 'http://localhost:8000';
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function clickIfVisible(page, selector) {
+  const locator = page.locator(selector).first();
+  if (!await locator.isVisible().catch(() => false)) return false;
+  try {
+    await locator.click({ timeout: 1200 });
+    return true;
+  } catch (error) {
+    try {
+      await locator.dispatchEvent('click');
+      return true;
+    } catch (dispatchError) {
+      return false;
+    }
+  }
+  return false;
+}
+
+async function clickLocatorIfVisible(locator) {
+  if (!await locator.isVisible().catch(() => false)) return false;
+  try {
+    await locator.click({ timeout: 1200 });
+    return true;
+  } catch (error) {
+    try {
+      await locator.dispatchEvent('click');
+      return true;
+    } catch (dispatchError) {
+      return false;
+    }
+  }
+  return false;
+}
+
+async function chooseFirstIfNoneSelected(page, rootSelector, itemSelector) {
+  const root = page.locator(rootSelector).first();
+  if (!await root.isVisible().catch(() => false)) return false;
+  if (await root.locator('.selected').count() > 0) return false;
+  const first = root.locator(itemSelector).first();
+  if (await first.isVisible().catch(() => false)) {
+    try {
+      await first.click({ timeout: 1200 });
+      return true;
+    } catch (error) {
+      try {
+        await first.dispatchEvent('click');
+        return true;
+      } catch (dispatchError) {
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+async function ensureDiscussionMessage(page, senderText) {
+  const chatInput = page.locator('.chat-compose input').first();
+  if (!await chatInput.isVisible().catch(() => false)) return;
+  if (await chatInput.isDisabled().catch(() => true)) return;
+  await chatInput.fill(senderText);
+  await page.keyboard.press('Enter');
+}
+
+async function maybeExerciseMap(page) {
+  const mapButton = page.getByRole('button', { name: '🗺️' }).first();
+  if (!await mapButton.isVisible().catch(() => false)) return;
+  await mapButton.click();
+  const mapModal = page.locator('.map-modal').first();
+  if (!await mapModal.isVisible().catch(() => false)) return;
+  const floorButtons = page.locator('.floorplan-tabs button');
+  const tabCount = await floorButtons.count();
+  if (tabCount > 1) {
+    await floorButtons.nth(1).click();
+  }
+  await page.getByRole('button', { name: 'Close' }).first().click();
+}
+
+async function playUntilGameOver(page, options = {}) {
+  const maxSteps = options.maxSteps || 500;
+  let openedMap = false;
+  let sentChat = false;
+  let idleLoops = 0;
+  const maxIdleLoops = options.maxIdleLoops || 150;
+
+  for (let step = 0; step < maxSteps; step++) {
+    if (await page.getByRole('button', { name: 'New Game' }).isVisible().catch(() => false)) {
+      return { success: true, steps: step + 1, reason: 'gameover' };
+    }
+
+    let progressed = false;
+
+    if (!openedMap && await page.locator('button[title="Open map"]').first().isVisible().catch(() => false)) {
+      await maybeExerciseMap(page);
+      openedMap = true;
+      progressed = true;
+      await sleep(80);
+      continue;
+    }
+
+    if (!sentChat && await page.locator('.chat-compose input').first().isVisible().catch(() => false)) {
+      await ensureDiscussionMessage(page, 'Testing discussion flow');
+      sentChat = true;
+      progressed = true;
+      await sleep(80);
+    }
+
+    if (await clickIfVisible(page, 'button:has-text("Continue to Player Turns")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Reveal My Role")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Got it!")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Plan My Night")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Open Night Console")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Choose Who to Save")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Cast My Vote")')) { progressed = true; await sleep(80); continue; }
+
+    progressed = (await chooseFirstIfNoneSelected(page, '.location-grid', '.location-card')) || progressed;
+    progressed = (await chooseFirstIfNoneSelected(page, '.action-list', '.action-card')) || progressed;
+    progressed = (await chooseFirstIfNoneSelected(page, '.target-grid', '.target-btn')) || progressed;
+    progressed = (await chooseFirstIfNoneSelected(page, '.target-list', '.target-card')) || progressed;
+
+    if (await clickIfVisible(page, 'button:has-text("Confirm Route")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Confirm Plan")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Confirm Night Strike")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Confirm Night Stance")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Confirm Save")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Proceed to Voting")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, 'button:has-text("Submit Vote")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, 'button:has-text("See Results")')) { progressed = true; await sleep(100); continue; }
+    if (await clickIfVisible(page, '.modal-content button:has-text("Continue")')) { progressed = true; await sleep(100); continue; }
+
+    if (progressed) {
+      idleLoops = 0;
+    } else {
+      idleLoops++;
+      if (idleLoops >= maxIdleLoops) {
+        const phase = await page.locator('.phase-badge').first().innerText().catch(() => 'unknown');
+        return { success: false, steps: step + 1, reason: `stalled at ${phase}` };
+      }
+    }
+
+    await sleep(170);
+  }
+
+  return { success: false, steps: maxSteps, reason: 'max steps reached' };
+}
+
+async function configureRunPreamble(page, runLabel) {
+  const openedHelp =
+    await clickLocatorIfVisible(page.getByRole('button', { name: 'How to Play' }).first())
+    || await clickLocatorIfVisible(page.locator('button.btn-icon:has-text("?")').first());
+
+  if (openedHelp) {
+    await clickLocatorIfVisible(page.getByRole('button', { name: /Rules/ }).first());
+    await clickLocatorIfVisible(page.getByRole('button', { name: /Modes/ }).first());
+    await clickLocatorIfVisible(page.getByRole('button', { name: 'Got it!' }).first());
+  }
+
+  const openedSettings = await clickLocatorIfVisible(page.locator('button.btn-icon:has-text("⚙️")').first());
+  if (openedSettings) {
+    const slider = page.locator('input[type="range"]').first();
+    if (await slider.isVisible().catch(() => false)) {
+      await slider.fill('700');
+    }
+    await clickLocatorIfVisible(page.getByRole('button', { name: 'Done' }).first());
+  }
+
+  // Add some variation in narrator mode.
+  if (/cinematic/i.test(runLabel)) {
+    await page.locator('.narrator-quick-controls button:has-text("Human")').first().click().catch(() => {});
+  }
+}
+
+async function addPlayersFromInput(page, names) {
+  const input = page.locator('#newPlayerInput').first();
+  for (const name of names) {
+    await input.fill(name);
+    await input.press('Enter');
+    await sleep(40);
+  }
+}
+
+async function runSolo(browser, run) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const notes = [];
+
+  try {
+    await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await configureRunPreamble(page, run.label);
+    await page.getByRole('button', { name: /Solo/i }).click();
+    await page.waitForURL(/solo\.html/, { timeout: 8000 });
+
+    const nameInput = page.locator('#soloNameInput').first();
+    await nameInput.fill(run.soloName);
+
+    for (let i = 0; i < run.bots; i++) {
+      await page.getByRole('button', { name: '+ Add Bot' }).click();
+      await sleep(40);
+    }
+
+    if (run.storyName) {
+      const storyCard = page.locator('.story-card', { hasText: run.storyName }).first();
+      if (await storyCard.isVisible().catch(() => false)) await storyCard.click();
+    }
+
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    const outcome = await playUntilGameOver(page, { maxSteps: 560 });
+    notes.push(`steps=${outcome.steps}`);
+    if (outcome.reason) notes.push(outcome.reason);
+
+    return { pass: outcome.success, notes: notes.join(', ') };
+  } catch (error) {
+    return { pass: false, notes: `fatal: ${error.message}` };
+  } finally {
+    await context.close();
+  }
+}
+
+async function runPassplay(browser, run) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const notes = [];
+
+  try {
+    await page.goto(`${BASE_URL}/host.html`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await configureRunPreamble(page, run.label);
+
+    await page.getByRole('button', { name: 'Host Game' }).click();
+    const hostConnected = await waitForConnected(page);
+    if (!hostConnected) {
+      return { pass: false, notes: 'host failed to connect' };
+    }
+
+    await addPlayersFromInput(page, run.players);
+    for (let i = 0; i < run.bots; i++) {
+      await page.getByRole('button', { name: '+ Add Bot' }).click();
+      await sleep(40);
+    }
+
+    if (run.storyName) {
+      const storyCard = page.locator('.story-card', { hasText: run.storyName }).first();
+      if (await storyCard.isVisible().catch(() => false)) await storyCard.click();
+    }
+
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    const outcome = await playUntilGameOver(page, { maxSteps: 620 });
+    notes.push(`steps=${outcome.steps}`);
+    if (outcome.reason) notes.push(outcome.reason);
+
+    return { pass: outcome.success, notes: notes.join(', ') };
+  } catch (error) {
+    return { pass: false, notes: `fatal: ${error.message}` };
+  } finally {
+    await context.close();
+  }
+}
+
+async function waitForConnected(page, timeoutMs = 14000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const status = await page.locator('text=Connection:').first().innerText().catch(() => '');
+    if (/Connected/i.test(status)) return true;
+    await page.waitForTimeout(220);
+  }
+  return false;
+}
+
+async function readRoomCodeFromHost(page) {
+  const rows = page.locator('.realtime-row');
+  const count = await rows.count();
+  for (let i = 0; i < count; i++) {
+    const row = rows.nth(i);
+    const label = (await row.locator('label').first().innerText().catch(() => '')).trim().toLowerCase();
+    if (label !== 'room code') continue;
+    return (await row.locator('input[readonly]').first().inputValue().catch(() => '')).trim();
+  }
+  return '';
+}
+
+async function runRealtime(browser, run) {
+  const hostContext = await browser.newContext();
+  const joinContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const join = await joinContext.newPage();
+  const notes = [];
+
+  try {
+    await host.goto(`${BASE_URL}/host.html`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await configureRunPreamble(host, run.label);
+
+    await host.getByRole('button', { name: 'Host Game' }).click();
+    const hostConnected = await waitForConnected(host);
+    if (!hostConnected) {
+      return { pass: false, notes: 'host failed to connect' };
+    }
+
+    // Verify large room code modal (host feature).
+    const showLarge = host.getByRole('button', { name: 'Show Large' }).first();
+    if (await showLarge.isVisible().catch(() => false)) {
+      await showLarge.click();
+      const largeCode = await host.locator('.big-room-code-value').first().innerText().catch(() => '');
+      notes.push(`largeCode=${largeCode.trim()}`);
+      await host.getByRole('button', { name: 'Close' }).first().click();
+    }
+
+    const roomCode = await readRoomCodeFromHost(host);
+    if (!roomCode) {
+      return { pass: false, notes: 'failed to read host room code' };
+    }
+
+    await join.goto(`${BASE_URL}/join.html`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await join.fill('#joinCodeInput', roomCode);
+    await join.getByRole('button', { name: 'Join Game' }).click();
+
+    const joinConnected = await waitForConnected(join);
+    if (!joinConnected) {
+      return { pass: false, notes: 'join failed to connect' };
+    }
+
+    await addPlayersFromInput(host, [run.hostPlayer]);
+    await addPlayersFromInput(join, [run.joinPlayer]);
+
+    for (let i = 0; i < run.bots; i++) {
+      await host.getByRole('button', { name: '+ Add Bot' }).click();
+      await sleep(40);
+    }
+
+    await host.getByRole('button', { name: 'Start Game' }).click();
+
+    const outcome = await playUntilGameOver(host, { maxSteps: 700 });
+    notes.push(`steps=${outcome.steps}`);
+    if (outcome.reason) notes.push(outcome.reason);
+
+    return { pass: outcome.success, notes: notes.join(', ') };
+  } catch (error) {
+    return { pass: false, notes: `fatal: ${error.message}` };
+  } finally {
+    await hostContext.close();
+    await joinContext.close();
+  }
+}
+
+async function main() {
+  const browser = await chromium.launch({ headless: true });
+  const runs = [
+    { id: 1, mode: 'solo', label: 'Solo-Blackwood', soloName: 'SoloOne', bots: 2, storyName: 'Blackwood Estate' },
+    { id: 2, mode: 'solo', label: 'Solo-Train', soloName: 'SoloTwo', bots: 3, storyName: 'Midnight Express' },
+    { id: 3, mode: 'solo', label: 'Solo-Island-Cinematic', soloName: 'SoloThree', bots: 3, storyName: 'Coral Bay Resort' },
+    { id: 4, mode: 'solo', label: 'Solo-Space', soloName: 'SoloFour', bots: 2, storyName: 'Station Prometheus' },
+    { id: 5, mode: 'passplay', label: 'Passplay-3P', players: ['AlexA', 'BlairB', 'CaseyC'], bots: 1, storyName: 'Blackwood Estate' },
+    { id: 6, mode: 'passplay', label: 'Passplay-Train', players: ['DrewD', 'EvanE', 'FlynnF'], bots: 0, storyName: 'Midnight Express' },
+    { id: 7, mode: 'passplay', label: 'Passplay-Island', players: ['GrayG', 'HarperH', 'IndyI'], bots: 1, storyName: 'Coral Bay Resort' },
+    { id: 8, mode: 'realtime', label: 'Realtime-Run1', hostPlayer: 'HostOne', joinPlayer: 'JoinOne', bots: 1 },
+    { id: 9, mode: 'realtime', label: 'Realtime-Run2', hostPlayer: 'HostTwo', joinPlayer: 'JoinTwo', bots: 2 },
+    { id: 10, mode: 'realtime', label: 'Realtime-Run3', hostPlayer: 'HostThree', joinPlayer: 'JoinThree', bots: 1 }
+  ];
+
+  const results = [];
+  for (const run of runs) {
+    const start = Date.now();
+    let result;
+    if (run.mode === 'solo') result = await runSolo(browser, run);
+    else if (run.mode === 'passplay') result = await runPassplay(browser, run);
+    else result = await runRealtime(browser, run);
+
+    const durationMs = Date.now() - start;
+    results.push({
+      id: run.id,
+      mode: run.mode,
+      label: run.label,
+      pass: result.pass,
+      notes: result.notes,
+      durationMs
+    });
+    console.log(`[10run] #${run.id} ${run.label} (${run.mode}) ${result.pass ? 'PASS' : 'FAIL'} in ${Math.round(durationMs / 1000)}s${result.notes ? ` | ${result.notes}` : ''}`);
+  }
+
+  await browser.close();
+
+  const failed = results.filter(item => !item.pass);
+  const passed = results.filter(item => item.pass);
+  console.log(`[10run] summary: ${passed.length}/${results.length} passed`);
+  if (failed.length > 0) {
+    failed.forEach(item => {
+      console.error(`[10run] failed #${item.id} ${item.label}: ${item.notes || 'no details'}`);
+    });
+    process.exitCode = 1;
+  }
+}
+
+main().catch(error => {
+  console.error('[10run] fatal', error);
+  process.exitCode = 1;
+});

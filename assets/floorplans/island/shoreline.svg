@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
+  <rect width="960" height="620" fill="#0c4a6e"/>
+  <text x="70" y="90" fill="#bae6fd" font-size="30" font-family="Georgia">Coral Bay Resort - Shoreline</text>
+
+  <rect x="80" y="170" width="250" height="190" rx="16" fill="#0369a1" stroke="#7dd3fc"/>
+  <text x="106" y="258" fill="#e0f2fe" font-size="24" font-family="Georgia">Porches Over Beach</text>
+
+  <rect x="360" y="230" width="250" height="170" rx="16" fill="#0284c7" stroke="#bae6fd"/>
+  <text x="406" y="312" fill="#e0f2fe" font-size="25" font-family="Georgia">Beach Path</text>
+
+  <rect x="650" y="170" width="240" height="190" rx="16" fill="#075985" stroke="#67e8f9"/>
+  <text x="714" y="258" fill="#ccfbf1" font-size="25" font-family="Georgia">Boat Dock</text>
+
+  <path d="M330 258 L360 300" stroke="#fef08a" stroke-width="5"/>
+  <path d="M610 300 L650 258" stroke="#fef08a" stroke-width="5"/>
+</svg>

@@ -271,3 +271,369 @@ Copy this for new sessions:
 ### Notes
 - Added repeatable button sweep script: `scripts/playwright_button_sweep.js`.
 - Playwright dependency was provided via global installation for this environment; browser automation succeeded locally even though MCP Playwright localhost access remains blocked.
+
+## Session 9: Lobby UX + Realtime Stability Regression (2026-02-13)
+
+**Tester:** Codex  
+**Method:** Localhost + scripted Playwright checks
+- `bash scripts/run_quick_checks.sh`
+- `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+- Targeted Playwright scripts for new lobby behaviors (large room code modal, setup help icon removal, device-name focus persistence)
+- Realtime two-page host/join validation with local relay (`python3 scripts/realtime_server.py --host 127.0.0.1 --port 8765`)
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Static/smoke checks (`run_quick_checks.sh`) | PASS | JS syntax checks + localhost smoke returned pass. |
+| Full button sweep regression | PASS | Completed sweep with no fatal errors (`[sweep] PASS`). |
+| Setup screen help icon cleanup | PASS | Setup header no longer shows redundant `?` icon; `How to Play` remains primary entry point. |
+| Host large room-code display | PASS | `Show Large` opens modal with oversized room code and close flow works. |
+| Device-name input focus persistence | PASS | Forcing `render()` while editing keeps focus and value on `#realtimeDeviceNameInput`. |
+| Realtime host/join connection status | PASS | Host and join both reached `Connection: Connected` using room code + `join.html?join=<CODE>`. |
+| Realtime offline guidance copy | PASS | Lobby shows actionable status detail text while disconnected/connecting. |
+
+### Bugs Found
+- None in this regression pass.
+
+### Notes
+- Multi-device reliability improvements in this slice were validated against an active relay and include clearer non-technical status messaging when connection fails.
+
+## Session 10: Major Overhauls + 10-Run Full Matrix (2026-02-13)
+
+**Tester:** Codex  
+**Method:** Localhost + relay + automated Playwright regression matrix
+- HTTP server: `python3 -m http.server 8000`
+- Realtime relay: `python3 scripts/realtime_server.py --host 127.0.0.1 --port 8765`
+- Quick checks: `bash scripts/run_quick_checks.sh`
+- 10-run matrix: `NODE_PATH=$(npm root -g) node scripts/playwright_ten_run_matrix.js`
+- Button sweep: `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Major-overhaul floorplan map smoke | PASS | In-game map modal opens with floor tabs and floor images for stories using floorplan metadata. |
+| Entry-page split smoke (`index` portal -> `host`/`join`/`game`) | PASS | Portal links resolve to separate flow pages with correct entry behavior. |
+| `run_quick_checks.sh` | PASS | Syntax + localhost smoke checks passed. |
+| 10-run scenario matrix (solo/passplay/realtime) | PASS | Final matrix run reached `10/10 passed` with gameover reached in all runs. |
+| Updated button sweep regression | PASS | Script completed with `[sweep] PASS` after selector/flow updates for new UI. |
+
+### Bugs Found
+- Test harness compatibility regressions after page/flow split:
+  - `scripts/playwright_ten_run_matrix.js` used stale setup selectors and missed `Reveal My Role` handling in non-solo reveal flow.
+  - `scripts/playwright_button_sweep.js` expected removed setup controls and removed medicine flow.
+  - Fix: updated both scripts for portal/entry pages, current lobby controls, and current gameplay progression buttons.
+
+### Notes
+- Matrix coverage included 4 solo runs, 3 single-device pass-and-play runs, and 3 realtime multi-device host/join runs with relay connectivity.
+- This session was used as the evidence pass to clear completed items from `TODOS.md` (including raw uncategorized entries).
+
+## Session 11: Final Priority + Overhaul Verification (2026-02-14)
+
+**Tester:** Codex  
+**Method:** Local Playwright only (no non-Playwright tests counted for completion)
+- HTTP server: `python3 -m http.server 8000`
+- Realtime relay: `python3 scripts/realtime_server.py --host 127.0.0.1 --port 8765`
+- Sweep: `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+- 10-run matrix (final code state): `NODE_PATH=$(npm root -g) node scripts/playwright_ten_run_matrix.js`
+- Targeted Playwright checks (inline script) for requested UI/flow details
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Full button sweep regression | PASS | `[sweep] PASS` on updated code after selector hardening. |
+| 10-run matrix (solo/passplay/realtime) | PASS | Final run reached `10/10 passed` on latest code state. |
+| Back navigation from multiplayer | PASS | `← Back` returns to setup correctly on `index.html` multiplayer flow. |
+| `?` icon border artifact | PASS | No visible border/focus ring (`borderWidth=0`, `outline=none`, `boxShadow=none`). |
+| Join portal copy behavior | PASS | Copy button by portal URL shows positive feedback and copies successfully. |
+| Important lobby text contrast | PASS | Connection/status lines render as white/high-contrast text. |
+| Legacy classic 12-player helper line removal | PASS | Helper text no longer appears in role config UI. |
+| Instructions modal title/subheader wording | PASS | Modal title is `Instructions` with explicit variant warning subheader. |
+| Join flow prominence | PASS | Join panel has large join-code input (`.join-code-input` font-size >= 20px). |
+| Host page join controls hidden | PASS | `host.html` has no join controls and shows `Host device` banner. |
+| QR copy shortcut behavior | PASS | Clicking QR block triggers room-code copy feedback. |
+| Large room code modal portal URL | PASS | Modal includes join portal URL and copy action. |
+| Regenerate code option removal | PASS | No regenerate-code control rendered. |
+| Host remove-device control | PASS | Host removal action disconnects target and shows removal status on joiner. |
+| Room code collision guard | PASS | Two different host contexts seeded with same code resolved to distinct active codes. |
+
+### Bugs Found
+- Playwright harness flake in matrix/sweep from detached elements during rerender (not gameplay logic):
+  - `scripts/playwright_ten_run_matrix.js` and `scripts/playwright_button_sweep.js` occasionally stalled on `.click()` with 30s timeout.
+  - Fix: hardened helper click paths (`clickIfVisible`, `clickLocatorIfVisible`, `chooseFirstIfNoneSelected`) with short-timeout click + dispatch fallback.
+- Realtime kicked-device status was being overwritten by websocket `onclose` cleanup:
+  - Fix: preserve kicked state/detail in `connectRealtimeSession()` close handler when close code/reason indicates host kick.
+
+### Notes
+- This session was the final verification pass for the latest prioritized requests and both major overhauls.
+- `TODOS.md` was cleaned to active-only with completed/tested items removed and uncategorized raw notes cleared.
+
+## Session 12: Host/Join/Solo Page Split + Python Backend Verification (2026-02-14)
+
+**Tester:** Codex  
+**Method:** Playwright + new Python backend (`python3 server.py`)
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Backend startup (`python3 server.py`) | PASS | HTTP server is live at `http://127.0.0.1:8000`, and relay starts at `ws://127.0.0.1:8765` via project venv interpreter. |
+| Main regression sweep (`scripts/playwright_button_sweep.js`) | PASS | Completed setup -> multiplayer checks -> solo run -> gameover (`[sweep] PASS`). |
+| Full 10-run matrix (`scripts/playwright_ten_run_matrix.js`) | PASS | Final run summary `10/10 passed` across solo/passplay/realtime scenarios. |
+| Index multiplayer choice page | PASS | After clicking Multiplayer on `index.html`, screen shows only prominent `Host Game` and `Join Game` choices (no lobby inputs). |
+| Host page join-option removal | PASS | `host.html` does not render join-game controls. |
+| Fast-link label text removal | PASS | `Direct hotlink (joins this room)` no longer appears in host share UI. |
+| Join page independence | PASS | `join.html` runs as a full app page and remains on `join.html` during joined flow. |
+| Solo page availability | PASS | `solo.html` runs as a full dedicated solo page for the solo flow. |
+
+### Bugs Found
+- Sweep/matrix script assumptions broke after new page split (`index -> multiplayer choice`, `solo.html` navigation):
+  - Fix: updated Playwright scripts to follow new routing and wait for URL transitions.
+- New backend relay startup initially failed under system Python due missing `websockets`:
+  - Fix: `server.py` now auto-selects project venv Python for relay startup (`venv/bin/python3.12` fallback chain) and still keeps HTTP available.
+- Realtime relay runtime error during disconnect cleanup (`RuntimeError: Set changed size during iteration` in broadcast loop):
+  - Fix: iterate over a snapshot list of clients in `broadcast()` to avoid set mutation during cleanup.
+
+### Notes
+- This session validates the latest owner-requested architecture split (`index.html`, `host.html`, `join.html`, `solo.html`) and one-command Python backend startup.
+
+## Session 13: Join Lobby Guardrails + Clean Join Portal URL (2026-02-14)
+
+**Tester:** Codex  
+**Method:** Playwright-first verification on local backend
+- Backend: `python3 server.py` (HTTP + relay)
+- Targeted guardrails: `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_join_guardrails.js`
+- Regression sweep: `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+- 10-run matrix: `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_ten_run_matrix`
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Join guardrail suite | PASS | Verified join input focus stability, invalid-code rejection, no false connected state, code lock after join, join-only controls (no host/single-device toggles), drag only in `📱 Your Device`, no drag handles in `🧩 Devices and Players`, read-only setup cards, and portal URL not containing `join.html`. |
+| Button sweep regression | PASS | `[sweep] PASS` after route/selector compatibility updates and restoring `solo.html` entry file. |
+| 10-run matrix (solo + host-local + realtime) | PASS | Final summary `10/10 passed` with gameover reached across all runs. |
+
+### Bugs Found
+- `join.html` blank-screen regression:
+  - Root cause: `renderJoinEntry()` and `join_entry` branch were missing from `scripts/render.js`.
+  - Fix: restored `renderJoinEntry()` and re-added `state.screen === 'join_entry'` render branch.
+- Join-client page identity overwritten after host sync:
+  - Root cause: realtime snapshot apply path overwrote `entryPage` and `realtimePanelMode` from host snapshot.
+  - Fix: preserve `entryPage` and `realtimePanelMode` in `applyRealtimeStateSnapshot()`.
+- Invalid-room join acceptance on relay:
+  - Root cause: relay allowed joiners to implicitly create rooms.
+  - Fix: `scripts/realtime_server.py` now rejects non-host joins when room code does not exist.
+
+### Notes
+- Host share portal URL now uses clean portal base URL under HTTP(S) and no longer displays `join.html` in the shown/copied portal link.
+- `TODOS.md` was cleared for this slice after implementation + Playwright verification.
+
+## Session 14: Settings-Math Overhaul + Absolute URL Share Validation (2026-02-14)
+
+**Tester:** Codex  
+**Method:** Playwright-first verification on local backend (`python3 server.py`)
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Active TODO targeted suite (`scripts/playwright_active_todos.js`) | PASS | Verified: host join portal is absolute HTTP(S), fast join link is absolute HTTP(S), neither URL contains `join.html`, localhost run prefers LAN portal URL from `/api/network-info`, advanced link options appear with alternates, preset descriptions are literal role-target text, settings profiles change disturbance/cure/exposure math, and join read-only lobby shows selected environment profile details. |
+| Join guardrails (`scripts/playwright_join_guardrails.js`) | PASS | Verified join input stability, invalid-code rejection, join-only controls, read-only setup restrictions, and no `join.html` in portal URL. |
+| Button sweep (`scripts/playwright_button_sweep.js`) | PASS | `[sweep] PASS` through setup, multiplayer navigation checks, solo run, and gameover. |
+| 10-run matrix (`scripts/playwright_ten_run_matrix`) | PASS | Final summary `10/10 passed` across solo, pass-and-play, and realtime host/join scenarios. |
+
+### Bugs Found
+- Realtime relay startup compatibility break with newer `websockets` package:
+  - Symptom: backend reported missing dependency even when package existed.
+  - Root cause: import of `websockets.server.WebSocketServerProtocol` is version-sensitive.
+  - Fix: `scripts/realtime_server.py` now uses version-tolerant protocol typing (`WebSocketServerProtocol = Any`) while still requiring `websockets` runtime.
+- New targeted Playwright script compatibility issue:
+  - Symptom: `allInputValues` API unavailable in installed Playwright build.
+  - Fix: switched to explicit locator iteration with `.count()` + `.inputValue()` loop.
+
+### Notes
+- `/api/network-info` currently returns LAN-preferred URL on localhost runs (for example `http://192.168.1.208:8000/`) with localhost/current-device URLs in alternates.
+
+## Session 15: LAN-Preferred Backend + Static-Host Diagnosis + QR UX (2026-02-19)
+
+**Tester:** Codex  
+**Method:** Playwright + backend/static-host split validation
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Backend networking suite (`scripts/playwright_network_overhaul_checks.js`) | PASS | Verified LAN/origin/custom networking settings section, backend detection note, LAN-preferred portal behavior, host/disconnect promoted buttons (`btn-lg`), QR rendered as click-only tile (no `<img>`, no separate QR copy button), tooltip text `Click to copy`, and solo narrator `Human` option hidden. |
+| Static-host diagnosis suite (`EXPECT_STATIC=1 scripts/playwright_network_overhaul_checks.js`) | PASS | On static host (`python3 -m http.server 5500`), host attempt now reports explicit relay/backend guidance instead of ambiguous offline text. |
+| Join guardrails (`scripts/playwright_join_guardrails.js`) | PASS | Join focus stability, invalid-code rejection, join-only controls, read-only setup, and join URL behavior all pass. |
+| Button sweep (`scripts/playwright_button_sweep.js`) | PASS | Sweep passes end-to-end through setup/multiplayer navigation/solo gameplay to gameover. |
+| Device naming sequence (`scripts/playwright_device_name_sequence.js`) | PASS | Three-device realtime join validated default labels `Device 1`, `Device 2`, `Device 3`. |
+| 10-run matrix (`scripts/playwright_ten_run_matrix`) | PASS | Final summary `10/10 passed` across solo, passplay, and realtime runs after networking/QR changes. |
+
+### Root Cause Diagnosis
+- Reported issue (`Connection: Offline ... Could not start room connection from this URL`) is triggered when app is served by static hosts (for example VS Code Live Server) that do not provide the websocket relay endpoint used for multi-device rooms.
+- Fix/mitigation implemented:
+  - explicit static-host diagnosis in status messaging
+  - in-app networking mode controls (LAN / Same URL / Custom + advanced details)
+  - backend-safe LAN preference with automatic fallback to current origin when LAN is unavailable
+  - LAN mode disabled when LAN URL is unavailable
+
+## Session 16: Local Backend Auto-Recovery + Static-Host Autoswitch (2026-02-20)
+
+**Tester:** Codex  
+**Method:** Playwright + backend/static-host split checks
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Static host without backend (`EXPECT_STATIC=1`) | PASS | `scripts/playwright_network_overhaul_checks.js` now validates backend-missing messaging without false connected state. |
+| Static host with backend autoswitch (`EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1`) | PASS | Opening `http://127.0.0.1:5500/host.html` auto-switches to `http://127.0.0.1:8000/host.html` when backend is reachable. |
+| Backend networking suite | PASS | `scripts/playwright_network_overhaul_checks.js` passes with backend CORS-enabled `/api/network-info`, settings networking controls, QR behaviors, and host connect flow. |
+| Join guardrails regression | PASS | `scripts/playwright_join_guardrails.js` passes after backend/autoswitch changes. |
+| Button sweep regression | PASS | `scripts/playwright_button_sweep.js` passes through setup, multiplayer nav, solo game, and gameover. |
+
+### Root Cause + Fix
+- Root cause: when launched from static hosts (for example VS Code Live Server), the app could not use same-origin `/api/network-info`, so it stayed in backend-missing mode even if local backend existed.
+- Fixes implemented:
+  - `server.py` now returns CORS headers for API endpoints and exposes `/api/ensure-backend` + `/api/health`.
+  - `scripts/game.js` now probes local backend candidates (`:8000`) from local/static contexts and auto-switches to backend origin when detected.
+  - Multiplayer status text now reflects automatic backend recovery flow instead of hardcoded `python3` command prompts.
+
+### Commands Run
+- `EXPECT_STATIC=1 MAFIA_BASE_URL=http://127.0.0.1:5500 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1 MAFIA_BASE_URL=http://127.0.0.1:5500 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_join_guardrails.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+
+## Session 18: Join Retry Stability + Read-Only Joiner UI Regression (2026-02-24)
+
+**Tester:** Codex  
+**Method:** Playwright guardrail suite + static/backend split checks
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Backend networking suite | PASS | `scripts/playwright_network_overhaul_checks.js` passed on `http://127.0.0.1:8000`, including absolute portal URL checks and QR click-copy behavior checks. |
+| Join guardrails | PASS | `scripts/playwright_join_guardrails.js` passed after updating connect-attempt lifecycle and join-lobby assertions for hidden multiplayer card on connected non-host clients. |
+| Button sweep regression | PASS | `scripts/playwright_button_sweep.js` passed through setup, multiplayer navigation, solo game flow, and gameover. |
+| Static host diagnosis (no backend) | PASS | `EXPECT_STATIC=1` run on `http://127.0.0.1:8002` showed expected static-host behavior. |
+| Static host autoswitch (backend available) | PASS | `EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1` run on `http://127.0.0.1:8002` correctly switched to backend host URL. |
+
+### Root Cause + Fix
+- Root cause: retrying join after an invalid code could race with an in-flight connect attempt, leaving stale join state and making guardrails flaky.
+- Fixes:
+  - `scripts/game.js`: added cancellable realtime connect-attempt tracking (`connectAttemptId`, pending socket/timer cleanup) and stricter stale-attempt guards in websocket callbacks.
+  - `scripts/game.js`: join/host reconnect paths now clear active `connecting` attempts before starting a fresh one.
+  - `scripts/game.js`: host connected copy updated to remove legacy “direct hotlink” wording.
+  - `scripts/playwright_join_guardrails.js`: updated to assert join success via read-only lobby state instead of deprecated `Connection:` row visibility after join.
+
+### Commands Run
+- `node --check scripts/game.js`
+- `node --check scripts/render.js`
+- `node --check scripts/playwright_join_guardrails.js`
+- `node --check scripts/playwright_network_overhaul_checks.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_join_guardrails.js`
+- `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+- `EXPECT_STATIC=1 MAFIA_BASE_URL=http://127.0.0.1:8002 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1 MAFIA_BASE_URL=http://127.0.0.1:8002 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+
+## Session 19: Host Failure Recovery Path (2026-03-09)
+
+**Tester:** Codex  
+**Method:** Playwright regression + direct starter execution
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Static host without backend (`EXPECT_STATIC=1`) | PASS | Host failure now shows a room-service starter recovery card with starter download links. |
+| Starter launcher script (`./start_room_service.command`) | PASS | Launcher starts `server.py`, opens the host page, and brings up the local backend/relay. |
+| Backend networking suite | PASS | `scripts/playwright_network_overhaul_checks.js` passed after launcher/error-state changes. |
+| Join guardrails regression | PASS | `scripts/playwright_join_guardrails.js` remained green after host recovery changes. |
+| Button sweep regression | PASS | `scripts/playwright_button_sweep.js` passed end-to-end. |
+| Static host autoswitch with backend available | PASS | `EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1` still redirects to backend host URL successfully. |
+| Visual inspection of static error state | PASS | Verified the new `Room Service Starter` card is rendered after host failure and shows Mac/Windows starter links. |
+
+### Root Cause + Fix
+- Root cause: a plain browser page cannot directly spawn `server.py`, so `Host Game` fails whenever no local backend process is already running.
+- Fixes implemented:
+  - Added a host error-state recovery card in `scripts/render.js` with starter downloads surfaced only when hosting fails due missing room service.
+  - Added starter resolution helpers in `scripts/game.js` and tightened host error copy to point at the new recovery path.
+  - Added `start_room_service.command` and `start_room_service.bat` so hosting can be started with a single local launcher action instead of typing `python3 server.py`.
+  - Added `--open-page` to `server.py` so the launcher can open `host.html` automatically once the backend is up.
+  - Extended `scripts/playwright_network_overhaul_checks.js` to require the new starter affordance in the static failure path.
+
+### Commands Run
+- `node --check scripts/game.js`
+- `node --check scripts/render.js`
+- `python3 -m py_compile server.py`
+- `EXPECT_STATIC=1 MAFIA_BASE_URL=http://127.0.0.1:8002 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `./start_room_service.command`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_join_guardrails.js`
+- `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+- `EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1 MAFIA_BASE_URL=http://127.0.0.1:8002 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+
+## Session 17: Host-Click Backend Recovery + Localhost Link Suppression (2026-02-20)
+
+**Tester:** Codex  
+**Method:** Playwright + focused static/backend networking runs
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Static host without backend (`EXPECT_STATIC=1`) | PASS | Host view no longer exposes localhost/127 join URL as a usable share link; host-click failure text is user-facing and non-technical. |
+| Static host with backend autoswitch (`EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1`) | PASS | `host.html` on static origin switches to backend host URL and host connect succeeds. |
+| Backend networking suite | PASS | Join portal remains absolute and multiplayer-safe (no localhost/127 portal URL in backend host flow). |
+| Join guardrails regression | PASS | `scripts/playwright_join_guardrails.js` remains green after host-click backend-ensure changes. |
+| Button sweep regression | PASS | `scripts/playwright_button_sweep.js` passes end-to-end after lobby/networking copy and URL logic updates. |
+
+### Root Cause + Fix
+- Root cause: share-link selection could still fall back to local-only origins (`127.*`/`localhost`) before backend networking was fully ready.
+- Fixes implemented:
+  - `scripts/game.js` now filters join portal URLs to shareable network hosts only.
+  - Host click path now runs explicit backend ensure/recovery attempt before opening websocket room flow.
+  - User-facing multiplayer copy was simplified (non-technical default text; no command-style setup prompts in normal flow).
+
+### Commands Run
+- `EXPECT_STATIC=1 MAFIA_BASE_URL=http://127.0.0.1:5500 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1 MAFIA_BASE_URL=http://127.0.0.1:5500 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_network_overhaul_checks.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_join_guardrails.js`
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js`
+
+---
+
+## Session 20: Bug Review + GitHub Pages / Online-Relay Deploy Prep (2026-06-03)
+
+**Tester:** Claude Code (Opus 4.8)
+**Method:** Playwright (headless Chromium) — full-flow sweeps, deterministic logic-fix verification, and a GitHub-Pages-scenario simulation via `localtest.me` (resolves to 127.0.0.1, so `isPublicStaticHost()` is exercised) with the relay URL injected.
+
+### Context
+Returning to the project after a break. Goal: review code, fix bugs, deploy to GitHub Pages, and (per owner choice) enable multi-device online multiplayer via a cloud-hosted relay.
+
+### Bugs found and fixed (root-cause)
+A multi-dimensional review (win-conditions, role scaling, night/save math, voting, bot AI, render/UI, persistence, networking) with adversarial verification surfaced 10 real issues; fixed:
+1. **Voting race (HIGH)** — `confirmVote → processVote` ran before the deferred 700ms bot-vote timer, so in solo only the human's vote counted. Added `ensureBotVotes()` (synchronous) in `processVote`; made bot voting idempotent.
+2. **Night race (same class)** — bot Mafia targets/stances were set on the same deferred timer; a fast human night action triggered `processNight` first, so Mafia often never registered a kill. Added `ensureBotNightDecisions()` in `processNight`; idempotent night picks.
+3. **Stale bot decisions (med)** — added a phase guard (`if (state.gamePhase !== phase) return;`) at the top of `botMakeDecisions` so a late timer can't write into the next round.
+4. **Win-condition ordering (med)** — `humansAlive===0` was checked before `mafiaAlive===0`, mislabeling a legitimate Town win as "Mafia wins" when the last human was the last Mafia. Reordered so decisive Town/Mafia outcomes resolve before the all-humans-eliminated fallback.
+5. **Networking for static hosting (HIGH)** — added `scripts/config.js` (`productionRelayUrl`), `getConfiguredRelayUrl()`, `isPublicStaticHost()`. On a public static host the app now uses only the configured `wss://` relay, skips `/api/*` probing (no 404/CORS noise), and solo never probes at all.
+6. **Post-open WS watchdog (med)** — added a join-ack timeout so a relay that accepts the socket but never replies can't hang the UI on "Validating room code…".
+7. **Cold-start tolerance** — `warmUpConfiguredRelay()` HTTP-pings the relay `/health` before dialing; longer dial timeout on public static hosts.
+8. **Mixed content (low)** — on https pages, non-`wss://` relay candidates are filtered out.
+9. **Cache hygiene (med/privacy)** — room cache (which holds secret roles) now has a 12h TTL and is cleared on game-over and explicit leave; per-render writes de-duped.
+10. **UI peeve (low)** — doctor save-chance % was grey (`--text-secondary`); now primary/bright (important info shouldn't be subdued).
+
+Relay updated for cloud hosting: reads `$PORT`, binds `0.0.0.0`, answers HTTP `GET /health` with 200 (Render health check).
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Deterministic fix verification (`ensureBotVotes`, night decisions, phase guard, win order) | PASS | 6/6 assertions, 0 pageerrors |
+| Diagnostic full-flow (solo x3 configs + pass-and-play) | PASS | All complete; no console/page errors. Solo games now run longer (mafia actually kill, bots actually vote) |
+| Button sweep (`playwright_button_sweep.js`) | PASS | End-to-end solo to game-over, no errors |
+| Realtime join guardrails (`playwright_join_guardrails.js`) | PASS | Host/join over relay (relay bound 0.0.0.0) |
+| GitHub-Pages simulation (`localtest.me` + injected relay) | PASS | Solo: `isPublicStaticHost()` true, 0 `/api` requests, clean console. Host+Join connect over the configured relay and presence shows 2 devices |
+| Relay `$PORT` + `/health` (PORT=9999) | PASS | HTTP 200 on `/` and `/health`; WS handshake creates room |
+
+### Deploy prep
+- `.nojekyll`, `render.yaml`, `Procfile`, `DEPLOYMENT.md` added; `requirements.txt` pinned `websockets>=13.0`.
+- Static client → GitHub Pages (`master` root). Relay → Render free tier (one-time owner signup), then set `productionRelayUrl` in `scripts/config.js`.

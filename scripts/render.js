@@ -36,6 +36,32 @@ function renderThinkingDots() {
   return `<span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span>`;
 }
 
+function captureFocusedInputState() {
+  const active = document.activeElement;
+  if (!active || !active.id) return null;
+  const isInput = typeof HTMLInputElement !== 'undefined' && active instanceof HTMLInputElement;
+  const isTextarea = typeof HTMLTextAreaElement !== 'undefined' && active instanceof HTMLTextAreaElement;
+  if (!isInput && !isTextarea) return null;
+  return {
+    id: active.id,
+    start: active.selectionStart,
+    end: active.selectionEnd
+  };
+}
+
+function restoreFocusedInputState(snapshot) {
+  if (!snapshot?.id) return;
+  const next = document.getElementById(snapshot.id);
+  if (!next || typeof next.focus !== 'function') return;
+  next.focus();
+  if (typeof next.setSelectionRange === 'function' && Number.isInteger(snapshot.start) && Number.isInteger(snapshot.end)) {
+    const length = String(next.value || '').length;
+    const start = Math.max(0, Math.min(snapshot.start, length));
+    const end = Math.max(start, Math.min(snapshot.end, length));
+    next.setSelectionRange(start, end);
+  }
+}
+
 function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) {
   const aliveHumans = getAliveDiscussionHumans();
   const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
@@ -77,18 +103,21 @@ function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) 
 }
 
 function renderNarratorQuickControls() {
-  const modeHint = state.settings.narratorMode === 'human'
-    ? (isMultiDeviceChatEnabled()
-      ? 'Human narrator active: narrator turn goes first each phase and the cue is posted in shared chat.'
-      : 'Human narrator active: narrator turn goes first each phase and the cue is spoken aloud.')
-    : 'Auto narrator active.';
+  const soloNarratorRestricted = state.entryPage === 'solo';
+  const modeHint = soloNarratorRestricted
+    ? 'Solo mode uses Auto narrator only.'
+    : (state.settings.narratorMode === 'human'
+      ? (isMultiDeviceChatEnabled()
+        ? 'Human narrator active: narrator turn goes first each phase and the cue is posted in shared chat.'
+        : 'Human narrator active: narrator turn goes first each phase and the cue is spoken aloud.')
+      : 'Auto narrator active.');
 
   return `
     <div class="narrator-quick-controls">
       <div class="narrator-quick-label">Narrator</div>
       <div class="narrator-quick-actions">
         <button class="btn btn-small ${state.settings.narratorMode === 'auto' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('auto')">Auto</button>
-        <button class="btn btn-small ${state.settings.narratorMode === 'human' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('human')">Human</button>
+        ${soloNarratorRestricted ? '' : `<button class="btn btn-small ${state.settings.narratorMode === 'human' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('human')">Human</button>`}
       </div>
       <div class="narrator-quick-hint">${modeHint}</div>
     </div>
@@ -101,11 +130,15 @@ function renderNarratorQuickControls() {
 
 function render() {
   const app = document.getElementById('app');
+  const focusSnapshot = captureFocusedInputState();
   if (state.screen === 'setup') app.innerHTML = renderSetup();
+  else if (state.screen === 'multi_entry') app.innerHTML = renderMultiEntry();
+  else if (state.screen === 'join_entry') app.innerHTML = renderJoinEntry();
   else if (state.screen === 'solo_lobby') app.innerHTML = renderSoloLobby();
   else if (state.screen === 'multi_lobby') app.innerHTML = renderMultiLobby();
   else if (state.screen === 'game') app.innerHTML = renderGame();
   attachEventListeners();
+  restoreFocusedInputState(focusSnapshot);
   if (typeof window.afterRender === 'function') window.afterRender();
 }
 
@@ -116,6 +149,12 @@ function render() {
 function renderSetup() {
   return `
     <div class="container">
+      <div class="header-bar" style="margin-bottom:6px">
+        <span></span>
+        <div class="header-actions">
+          <button class="btn-icon btn-secondary" onclick="showSettings()">⚙️</button>
+        </div>
+      </div>
       <h1>MAFIA</h1>
       <p class="subtitle">A game of deception and survival</p>
       <button class="btn btn-secondary btn-full" style="margin-bottom:24px" onclick="showInstructions()">
@@ -131,15 +170,82 @@ function renderSetup() {
           <div class="mode-btn-desc">Play with friends</div>
         </button>
       </div>
-      ${state.joinCode ? `
-        <div class="card" style="border-color:rgba(59,130,246,0.5)">
-          <div class="section-label" style="color:#93c5fd">🔗 Room Code Detected</div>
-          <p style="color:var(--text-secondary);margin-bottom:10px">Code: <strong>${state.joinCode}</strong></p>
-          <button class="btn btn-primary btn-full" onclick="goToMultiLobby()">Open Multi-device Lobby</button>
-        </div>
-      ` : ''}
     </div>
     ${state.showInstructions ? renderInstructionsModal() : ''}
+    ${state.showSettings ? renderSettingsModal() : ''}
+  `;
+}
+
+function renderMultiEntry() {
+  return `
+    <div class="container">
+      <div class="header-bar">
+        <button class="btn btn-secondary btn-small" onclick="goToSetup()">← Back</button>
+        <div class="header-actions">
+          <button class="btn-icon btn-primary" onclick="showInstructions()">?</button>
+          <button class="btn-icon btn-secondary" onclick="showSettings()">⚙️</button>
+        </div>
+      </div>
+      <h2 style="color:var(--red-accent)">Multiplayer</h2>
+      <p class="subtitle" style="margin-bottom:14px">Choose how this device will join the game.</p>
+      <div class="card">
+        <button class="mode-btn" onclick="goToHostPage()" style="margin-bottom:14px">
+          <div class="mode-btn-title">🛡️ Host Game</div>
+          <div class="mode-btn-desc">Create the room, manage devices, and start rounds.</div>
+        </button>
+        <button class="mode-btn" onclick="goToJoinPage()">
+          <div class="mode-btn-title">📱 Join Game</div>
+          <div class="mode-btn-desc">Enter a room code and play from this device.</div>
+        </button>
+      </div>
+    </div>
+    ${state.showInstructions ? renderInstructionsModal() : ''}
+    ${state.showSettings ? renderSettingsModal() : ''}
+  `;
+}
+
+function renderJoinEntry() {
+  const realtimeStatusColor = state.network.status === 'connected'
+    ? '#4ade80'
+    : state.network.status === 'error'
+      ? '#f87171'
+      : '#fbbf24';
+  const realtimeStatusLabel = state.network.status === 'connected'
+    ? 'Connected'
+    : state.network.status === 'error'
+      ? 'Error'
+    : state.network.status === 'connecting'
+      ? 'Connecting...'
+      : 'Offline';
+  const joinCodeValue = String(state.joinCode || state.gameCode || '').trim();
+  const canJoin = Boolean(joinCodeValue);
+  const statusDetail = state.network.statusDetail
+    || (typeof getIdleRealtimeStatusDetail === 'function'
+      ? getIdleRealtimeStatusDetail(false)
+      : 'Enter room code, then press Join Game.');
+
+  return `
+    <div class="container">
+      <div class="header-bar">
+        <button class="btn btn-secondary btn-small" onclick="goToMultiEntryPage()">← Back</button>
+        <div class="header-actions">
+          <button class="btn-icon btn-primary" onclick="showInstructions()">?</button>
+          <button class="btn-icon btn-secondary" onclick="showSettings()">⚙️</button>
+        </div>
+      </div>
+      <h2 style="color:var(--red-accent)">Join Game</h2>
+      <div class="card">
+        <div class="section-label">Enter Room Code</div>
+        <input id="joinCodeInput" type="text" class="input join-code-input" value="${joinCodeValue}" oninput="setJoinCodeInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();connectAsJoiner();}" maxlength="8" spellcheck="false" placeholder="Enter code"/>
+        <button class="btn btn-primary btn-full btn-lg" style="margin-top:12px" onclick="connectAsJoiner()" ${canJoin && state.network.status !== 'connecting' ? '' : 'disabled'}>Join Game</button>
+        <div class="footnote" style="margin-top:10px">
+          Connection: <span style="color:${realtimeStatusColor}">${realtimeStatusLabel}</span>
+        </div>
+        <div class="footnote">${statusDetail}</div>
+      </div>
+    </div>
+    ${state.showInstructions ? renderInstructionsModal() : ''}
+    ${state.showSettings ? renderSettingsModal() : ''}
   `;
 }
 
@@ -152,11 +258,13 @@ function renderSoloLobby() {
   const total = getTotalRoles();
   const warnings = getStartWarnings();
   const blockReason = getStartBlockReason();
+  const backAction = state.entryPage === 'solo' ? 'goToHomePage()' : 'goToSetup()';
+  const backLabel = state.entryPage === 'solo' ? '← Home' : '← Back';
 
   return `
     <div class="container">
       <div class="header-bar">
-        <button class="btn btn-secondary btn-small" onclick="goToSetup()">← Back</button>
+        <button class="btn btn-secondary btn-small" onclick="${backAction}">${backLabel}</button>
         <div class="header-actions">
           <button class="btn-icon btn-primary" onclick="showInstructions()">?</button>
           <button class="btn-icon btn-secondary" onclick="showSettings()">⚙️</button>
@@ -225,10 +333,16 @@ function renderMultiLobby() {
   const warnings = getStartWarnings();
   const blockReason = getStartBlockReason();
   const isRealtime = state.multiplayerMode === 'realtime';
-  const orderedDeviceList = getDeviceGroupedPlayers();
-  const showDeviceList = isRealtime && orderedDeviceList.length > 1;
+  const orderedDeviceList = isRealtime ? getDeviceGroupedPlayers() : [];
   const waitingForHost = isRealtime && !state.network.isHost;
-  const isJoinPanel = state.realtimePanelMode === 'join';
+  const hostOnlyPage = typeof isHostOnlyPage === 'function' ? isHostOnlyPage() : false;
+  const joinOnlyPage = state.entryPage === 'join';
+  const connectedJoinClient = isRealtime && state.network.connected && !state.network.isHost;
+  const readonlySetupView = joinOnlyPage || (isRealtime && !state.network.isHost);
+  const fixedMultiPage = hostOnlyPage || joinOnlyPage;
+  const isJoinPanel = joinOnlyPage || (!hostOnlyPage && state.realtimePanelMode === 'join');
+  const joinCodeValue = String(state.joinCode || state.gameCode || '').trim();
+  const joinCodeLocked = isJoinPanel && state.network.connected;
   const realtimeStatusColor = state.network.status === 'connected'
     ? '#4ade80'
     : state.network.status === 'error'
@@ -236,152 +350,173 @@ function renderMultiLobby() {
       : '#fbbf24';
   const realtimeStatusLabel = state.network.status === 'connected'
     ? 'Connected'
+    : state.network.status === 'error'
+      ? 'Error'
     : state.network.status === 'connecting'
       ? 'Connecting...'
       : 'Offline';
   const joinPortal = isRealtime ? getJoinPortalUrl() : '';
   const shareJoinUrl = isRealtime ? getShareJoinUrl(state.gameCode) : '';
+  const qrImageUrl = isRealtime ? getShareQrImageUrl(state.gameCode) : '';
   const connectionGuide = isRealtime ? getConnectionGuideText() : '';
   const addBotBlocked = isRealtime && !state.network.isHost;
-  const groupedPlayers = isRealtime ? orderedDeviceList : [];
+  const groupedPlayers = orderedDeviceList;
+  const defaultStatusDetail = isRealtime
+    ? (typeof getIdleRealtimeStatusDetail === 'function'
+      ? getIdleRealtimeStatusDetail(state.network.isHost)
+      : (state.network.isHost ? 'Press Host Game to open this room.' : 'Enter room code, then press Join Game.'))
+    : '';
+  const statusDetail = state.network.statusDetail || defaultStatusDetail;
+  const myDevicePlayers = state.players.filter(player => (player.deviceId || state.network.deviceId) === state.network.deviceId);
+  const botRoster = state.bots;
+  const showNarratorControls = !joinOnlyPage && !connectedJoinClient;
+  const backAction = fixedMultiPage ? 'goToMultiEntryPage()' : 'goToSetup()';
+  const backLabel = '← Back';
+  const roomServiceStarter = typeof getRoomServiceStarterLinks === 'function'
+    ? getRoomServiceStarterLinks()
+    : null;
+  const showRoomServiceStarter = !isJoinPanel
+    && !connectedJoinClient
+    && typeof shouldShowRoomServiceStarter === 'function'
+    && shouldShowRoomServiceStarter();
 
   return `
     <div class="container wide">
       <div class="header-bar">
-        <button class="btn btn-secondary btn-small" onclick="goToSetup()">← Back</button>
+        <button class="btn btn-secondary btn-small" onclick="${backAction}">${backLabel}</button>
         <div class="header-actions">
           <button class="btn-icon btn-primary" onclick="showInstructions()">?</button>
           <button class="btn-icon btn-secondary" onclick="showSettings()">⚙️</button>
         </div>
       </div>
       <h2 style="color:var(--red-accent)">Multiplayer Lobby</h2>
-      ${renderNarratorQuickControls()}
+      ${showNarratorControls ? renderNarratorQuickControls() : ''}
 
+      ${connectedJoinClient ? '' : `
       <div class="card">
         <div class="section-label">🛰️ Multiplayer Mode</div>
-        <div class="mode-switch-row">
-          <button class="btn btn-small ${!isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('passplay')">Single-device</button>
-          <button class="btn btn-small ${isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('realtime')">Multi-device</button>
-        </div>
+        ${fixedMultiPage ? '' : `
+          <div class="mode-switch-row">
+            <button class="btn btn-small ${!isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('passplay')">Single-device</button>
+            <button class="btn btn-small ${isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('realtime')">Multi-device</button>
+          </div>
+        `}
         ${isRealtime ? `
+          ${fixedMultiPage ? '' : `
+            <div class="mode-switch-row" style="margin:6px 0 10px">
+              <button class="btn btn-small ${!isJoinPanel ? 'btn-primary' : 'btn-secondary'}" onclick="setRealtimePanelMode('host')">Host Game</button>
+              <button class="btn btn-small ${isJoinPanel ? 'btn-primary' : 'btn-secondary'}" onclick="setRealtimePanelMode('join')">Join Game</button>
+            </div>
+          `}
           <div class="realtime-meta">
             <div class="realtime-row">
-              <label>Device name</label>
-              <input type="text" class="input" value="${state.network.deviceName.replace(/"/g, '&quot;')}" oninput="setRealtimeDeviceName(this.value)" maxlength="32"/>
-            </div>
-            <div class="realtime-row">
-              <div>Connection: <span style="color:${realtimeStatusColor}">${realtimeStatusLabel}</span></div>
-              <div style="color:var(--text-secondary);font-size:0.85rem">${state.network.isHost ? 'Host device' : 'Client device'}</div>
-            </div>
-            <div class="mode-switch-row" style="margin-top:2px">
-              <button class="btn btn-small ${!isJoinPanel ? 'btn-primary' : 'btn-secondary'}" onclick="setRealtimePanelMode('host')">Host</button>
-              <button class="btn btn-small ${isJoinPanel ? 'btn-primary' : 'btn-secondary'}" onclick="setRealtimePanelMode('join')">Join</button>
+              <div class="realtime-status-line">Connection: <span style="color:${realtimeStatusColor}">${realtimeStatusLabel}</span></div>
+              <div class="realtime-status-line">${statusDetail}</div>
             </div>
             ${isJoinPanel ? `
               <div class="realtime-row">
-                <label>Enter room code</label>
-                <input type="text" class="input" value="${state.gameCode}" oninput="setJoinCodeInput(this.value)" maxlength="8" spellcheck="false"/>
+                <label>Join code</label>
+                <input id="joinCodeInput" type="text" class="input join-code-input" value="${joinCodeValue}" oninput="setJoinCodeInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();connectAsJoiner();}" maxlength="8" spellcheck="false" placeholder="Enter code" ${joinCodeLocked ? 'readonly' : ''}/>
               </div>
-              <div class="mode-switch-row">
-                <button class="btn btn-small btn-primary" onclick="connectAsJoiner()" ${state.network.connected ? 'disabled' : ''}>Join Room</button>
+              <div class="multiplayer-action-row">
+                <button class="btn btn-small btn-primary" onclick="connectAsJoiner()" ${state.network.connected ? 'disabled' : ''}>${state.network.connected ? 'Joined' : 'Join Game'}</button>
                 <button class="btn btn-small btn-secondary" onclick="disconnectRealtime()" ${!state.network.connected ? 'disabled' : ''}>Disconnect</button>
               </div>
+              ${joinCodeLocked ? `<div class="footnote" style="margin-top:8px">Connected to room <strong>${state.gameCode}</strong>. Disconnect to enter a different code.</div>` : ''}
             ` : `
               <div class="realtime-row">
                 <label>Room code</label>
                 <div class="input-row">
                   <input type="text" class="input" readonly value="${state.gameCode}"/>
-                  <button class="btn btn-secondary btn-small" onclick="regenerateRoomCode()">Regenerate</button>
+                  <button class="copy-btn" id="copyRoomCodeBtn" onclick="copyRoomCode()">📋 Copy</button>
+                  <button class="btn btn-secondary btn-small" onclick="showBigRoomCode()">Show Large</button>
+                </div>
+                <div class="portal-copy-row">
+                  <label>Join portal URL</label>
+                  <div class="input-row">
+                    <input type="text" class="input" readonly value="${joinPortal || 'Available after room service starts'}"/>
+                    <button class="copy-btn" id="copyPortalBtn" onclick="copyJoinPortal()">📋 Copy</button>
+                  </div>
                 </div>
               </div>
-              <div class="mode-switch-row">
-                <button class="btn btn-small btn-primary" onclick="connectAsHost()" ${state.network.connected ? 'disabled' : ''}>Host Room</button>
-                <button class="btn btn-small btn-secondary" onclick="disconnectRealtime()" ${!state.network.connected ? 'disabled' : ''}>Disconnect</button>
+              <div class="multiplayer-action-row host-action-row">
+                <button class="btn btn-primary btn-lg host-action-btn" onclick="connectAsHost()" ${state.network.connected ? 'disabled' : ''}>Host Game</button>
+                <button class="btn btn-secondary btn-lg host-action-btn" onclick="disconnectRealtime()" ${!state.network.connected ? 'disabled' : ''}>Disconnect</button>
               </div>
             `}
           </div>
         ` : `
-          <div style="color:var(--text-secondary);font-size:0.9rem">
+          <div style="color:var(--text-primary);font-size:0.98rem">
             Single-device uses pass-and-play on one screen. No room codes or join links are needed.
           </div>
         `}
       </div>
+      `}
 
-      ${isRealtime ? `
+      ${isRealtime && !isJoinPanel && !connectedJoinClient ? `
         <div class="card">
-          <div class="section-label">🔗 Join Links</div>
-          <div class="realtime-row" style="margin-bottom:10px">
-            <label>Join portal URL</label>
-            <div class="input-row">
-              <input type="text" class="input" readonly value="${joinPortal || 'Unavailable'}"/>
-              <button class="copy-btn" onclick="navigator.clipboard?.writeText('${(joinPortal || '').replace(/'/g, '\\\'')}')">📋 Copy</button>
-            </div>
-          </div>
+          <div class="section-label">🔗 Fast Join Link</div>
           <div class="realtime-row">
-            <label>Direct hotlink (joins this room)</label>
             <div class="input-row">
-              <input type="text" class="input" readonly value="${shareJoinUrl || 'Unavailable'}"/>
-              <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 Copy</button>
+              <input type="text" class="input" readonly value="${shareJoinUrl || 'Available after room service starts'}"/>
+              <button class="copy-btn" id="copyFastLinkBtn" onclick="copyLink()">📋 Copy</button>
             </div>
           </div>
-          <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:10px;line-height:1.4">
+          ${qrImageUrl ? `
+            <div class="qr-copy-wrap">
+              <div class="qr-touch-copy"
+                   role="button"
+                   tabindex="0"
+                   aria-label="Copy room join link"
+                   title="Click to copy"
+                   onclick="copyQrShortcut()"
+                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyQrShortcut();}"
+                   style="background-image:url('${qrImageUrl}')"></div>
+            </div>
+          ` : ''}
+          <div class="footnote" style="margin-top:10px;line-height:1.4">
             <strong>How to join:</strong> ${connectionGuide}
           </div>
         </div>
       ` : ''}
 
-      ${showDeviceList ? `
+      ${showRoomServiceStarter && roomServiceStarter ? `
         <div class="card">
-          <div class="section-label">📱 Device Order (${orderedDeviceList.length})</div>
-          <div class="device-list">
-            ${orderedDeviceList.map((device) => `
-              <div class="player-item draggable-row" draggable="${state.network.isHost ? 'true' : 'false'}"
-                   ondragstart="event.dataTransfer.setData('text/device-id','${device.deviceId}');this.classList.add('dragging-row')"
-                   ondragend="this.classList.remove('dragging-row')"
-                   ondragover="event.preventDefault()"
-                   ondrop="event.preventDefault();reorderDeviceByDrop(event.dataTransfer.getData('text/device-id'),'${device.deviceId}')">
-                <span class="player-name">
-                  ${state.network.isHost ? '<span class=\"drag-handle\" title=\"Drag to reorder\">☰</span>' : ''}
-                  ${device.isHost ? '🛡️' : '📱'} ${device.deviceName}
-                </span>
-                <div class="player-item-actions">
-                  <span style="font-size:0.8rem;color:var(--text-secondary)">${device.deviceId === state.network.deviceId ? 'This device' : 'Online'}</span>
-                </div>
-              </div>
-            `).join('')}
+          <div class="section-label">Room Service Starter</div>
+          <div class="support-copy">
+            Room hosting needs a local room-service process. Use the starter once and it will open the local host page with hosting ready.
           </div>
-          <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px">
-            ${state.network.isHost ? 'Host can reorder which device goes first.' : 'Waiting for host device order.'}
+          <div class="support-actions">
+            <a class="btn btn-primary btn-full btn-lg" href="${roomServiceStarter.primary.url}" download>Download Room Service Starter</a>
+            <a class="btn btn-secondary btn-full" href="${roomServiceStarter.secondary.url}" download>${roomServiceStarter.secondary.label}</a>
+          </div>
+          <div class="footnote" style="margin-top:10px;line-height:1.4">
+            After it opens the local host page, press Host Game there and share the join link shown on that page.
           </div>
         </div>
       ` : ''}
 
       <div class="card">
-        <div class="section-label">👥 Players (${state.players.length})</div>
+        <div class="section-label">${isRealtime ? '📱 Your Device' : '👥 Players'}</div>
         ${isRealtime ? `
-          <div style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:10px">Players are grouped by device. Drag by the ☰ handle to reorder.</div>
-          <div class="player-list">
-            ${groupedPlayers.map(group => `
-              <div class="device-player-group">
-                <div class="device-group-title">${group.isHost ? '🛡️' : '📱'} ${group.deviceName}</div>
-                ${(group.players || []).map(player => `
-                  <div class="player-item draggable-row" draggable="${state.network.isHost ? 'true' : 'false'}"
-                       ondragstart="event.dataTransfer.setData('text/player-id','${player.id}');this.classList.add('dragging-row')"
-                       ondragend="this.classList.remove('dragging-row')"
-                       ondragover="event.preventDefault()"
-                       ondrop="event.preventDefault();reorderPlayerByDrop(event.dataTransfer.getData('text/player-id'),'${player.id}')">
-                    <span class="player-name">
-                      ${state.network.isHost ? '<span class=\"drag-handle\" title=\"Drag to reorder\">☰</span>' : ''}
-                      👤 ${player.name}
-                    </span>
-                    <div class="player-item-actions">
-                      <button class="remove-btn" onclick="removePlayer('${player.id}')" title="Remove player">×</button>
-                    </div>
-                  </div>
-                `).join('')}
-                ${(group.players || []).length === 0 ? '<div style="color:var(--text-secondary);font-size:0.84rem;padding:6px 0 2px 2px">No players on this device yet.</div>' : ''}
+          ${state.network.isHost ? '<div class="host-device-banner">🛡️ Host device</div>' : ''}
+          <div class="footnote" style="margin-bottom:8px">Rename your device here.</div>
+          <input id="realtimeDeviceNameInput" type="text" class="device-name-inline" value="${state.network.deviceName.replace(/"/g, '&quot;')}" oninput="setRealtimeDeviceName(this.value)" onblur="commitRealtimeDeviceName()" maxlength="32"/>
+          <div style="margin-top:10px;font-weight:600">Players on this device (${myDevicePlayers.length})</div>
+          <div class="player-list" style="margin-top:8px">
+            ${myDevicePlayers.map(player => `
+              <div class="player-item draggable-row" draggable="true"
+                   ondragstart="event.dataTransfer.setData('text/player-id','${player.id}');this.classList.add('dragging-row')"
+                   ondragend="this.classList.remove('dragging-row')"
+                   ondragover="event.preventDefault()"
+                   ondrop="event.preventDefault();reorderPlayerByDrop(event.dataTransfer.getData('text/player-id'),'${player.id}')">
+                <span class="player-name"><span class="drag-handle" title="Drag to reorder">☰</span> 👤 ${player.name}</span>
+                <div class="player-item-actions">
+                  <button class="remove-btn" onclick="removePlayer('${player.id}')" title="Remove player">×</button>
+                </div>
               </div>
             `).join('')}
+            ${myDevicePlayers.length === 0 ? '<div style="color:var(--text-primary);text-align:center;padding:10px">No players on this device yet.</div>' : ''}
           </div>
         ` : `
           <div class="player-list">
@@ -397,7 +532,7 @@ function renderMultiLobby() {
                 </div>
               </div>
             `).join('')}
-            ${state.players.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No players yet</div>' : ''}
+            ${state.players.length === 0 ? '<div style="color:var(--text-primary);text-align:center;padding:12px">No players yet</div>' : ''}
           </div>
         `}
         <div class="input-row">
@@ -407,56 +542,244 @@ function renderMultiLobby() {
         ${state.nameError ? `<div class="error-msg">${state.nameError}</div>` : ''}
       </div>
 
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <span class="section-label" style="margin-bottom:0">🤖 Bots (${state.bots.length})</span>
-          <button class="btn btn-secondary btn-small" onclick="addBot()" ${(allPlayers.length >= 16 || addBotBlocked) ? 'disabled' : ''}>+ Add Bot</button>
-        </div>
-        ${addBotBlocked ? '<div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:8px">Only the host can add or remove bots in multi-device mode.</div>' : ''}
-        <div class="bot-list">
-          ${state.bots.map(b => `
-            <div class="player-item">
-              <span class="player-name">🤖</span>
-              <div class="player-item-actions" style="margin-left:auto">
-                <input type="text" class="input inline-edit" value="${b.name.replace(/"/g, '&quot;')}"
-                       onblur="renameBot('${b.id}', this.value)"
-                       onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
-                       ${addBotBlocked ? 'disabled' : ''}/>
-                <button class="remove-btn" onclick="removeBot('${b.id}')" ${addBotBlocked ? 'disabled' : ''}>×</button>
+      ${isRealtime ? `
+        <div class="card">
+          <div class="section-label">🧩 Devices and Players</div>
+          <div style="color:var(--text-primary);font-size:0.95rem;margin-bottom:10px">Players are grouped by device.</div>
+          <div class="player-list">
+            ${groupedPlayers.map(group => `
+              <div class="device-player-group">
+                <div class="device-group-title">
+                  <span>${group.isHost ? '🛡️' : '📱'} ${group.deviceName}</span>
+                  <span class="player-item-actions">
+                    ${group.deviceId === state.network.deviceId ? '<span class="device-pill">This device</span>' : '<span class="device-pill">Online</span>'}
+                    ${state.network.isHost && group.deviceId !== state.network.deviceId ? `<button class="remove-btn" onclick="removeDevice('${group.deviceId}')" title="Remove device">×</button>` : ''}
+                  </span>
+                </div>
+                ${(group.players || []).map(player => `
+                  <div class="player-item">
+                    <span class="player-name">👤 ${player.name}</span>
+                    <div class="player-item-actions">
+                      ${state.network.isHost ? `<button class="remove-btn" onclick="removePlayer('${player.id}')" title="Remove player">×</button>` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+                ${(group.players || []).length === 0 ? '<div style="color:var(--text-primary);font-size:0.9rem;padding:6px 0 2px 2px">No players on this device yet.</div>' : ''}
               </div>
+            `).join('')}
+            <div class="device-player-group bot-device-group">
+              <div class="device-group-title">🤖 Bots</div>
+              ${botRoster.map(bot => `
+                <div class="player-item">
+                  <span class="player-name">🤖 ${bot.name}</span>
+                </div>
+              `).join('')}
+              ${botRoster.length === 0 ? '<div style="color:var(--text-primary);font-size:0.9rem;padding:6px 0 2px 2px">No bots added.</div>' : ''}
             </div>
-          `).join('')}
-          ${state.bots.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No bots yet</div>' : ''}
+          </div>
         </div>
-      </div>
+      ` : ''}
 
-      <div class="card">
-        <div class="section-label">📖 Setting</div>
-        <div class="grid-2">
-          ${STORY_PRESETS.map(s => `
-            <div class="story-card ${state.selectedStory.id === s.id ? 'selected' : ''}" onclick="selectStory('${s.id}')">
-              <div class="story-name">${s.name}</div>
-              <div class="story-intro">${s.intro}</div>
-              <div class="story-setting">${s.setting}</div>
-            </div>
-          `).join('')}
+      ${readonlySetupView ? `
+        <div class="card">
+          <div class="section-label">🤖 Bots (${state.bots.length})</div>
+          <div style="color:var(--text-primary);font-size:0.95rem;margin-bottom:10px">Host controls bot setup.</div>
+          <div class="bot-list">
+            ${state.bots.map(bot => `
+              <div class="player-item">
+                <span class="player-name">🤖 ${bot.name}</span>
+              </div>
+            `).join('')}
+            ${state.bots.length === 0 ? '<div style="color:var(--text-primary);text-align:center;padding:12px">No bots yet</div>' : ''}
+          </div>
         </div>
-      </div>
+        ${renderJoinReadonlySetup(allPlayers)}
+      ` : `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span class="section-label" style="margin-bottom:0">🤖 Bots (${state.bots.length})</span>
+            <button class="btn btn-secondary btn-small" onclick="addBot()" ${(allPlayers.length >= 16 || addBotBlocked) ? 'disabled' : ''}>+ Add Bot</button>
+          </div>
+          ${addBotBlocked ? '<div class="footnote" style="margin-bottom:8px">Only the host can add or remove bots in multi-device mode.</div>' : ''}
+          <div class="bot-list">
+            ${state.bots.map(b => `
+              <div class="player-item">
+                <span class="player-name">🤖</span>
+                <div class="player-item-actions" style="margin-left:auto">
+                  <input type="text" class="input inline-edit" value="${b.name.replace(/"/g, '&quot;')}"
+                         onblur="renameBot('${b.id}', this.value)"
+                         onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+                         ${addBotBlocked ? 'disabled' : ''}/>
+                  <button class="remove-btn" onclick="removeBot('${b.id}')" ${addBotBlocked ? 'disabled' : ''}>×</button>
+                </div>
+              </div>
+            `).join('')}
+            ${state.bots.length === 0 ? '<div style="color:var(--text-primary);text-align:center;padding:12px">No bots yet</div>' : ''}
+          </div>
+        </div>
 
-      ${renderRoleConfig(allPlayers, total, warnings)}
+        <div class="card">
+          <div class="section-label">📖 Setting</div>
+          <div class="grid-2">
+            ${STORY_PRESETS.map(s => `
+              <div class="story-card ${state.selectedStory.id === s.id ? 'selected' : ''}" onclick="selectStory('${s.id}')">
+                <div class="story-name">${s.name}</div>
+                <div class="story-intro">${s.intro}</div>
+                <div class="story-setting">${s.setting}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
 
-      <button class="btn btn-danger btn-full btn-lg" onclick="startGame()" ${blockReason || waitingForHost ? 'disabled' : ''}>
-        ${waitingForHost ? 'Waiting for Host to Start' : (blockReason || 'Start Game')}
-      </button>
+        ${renderRoleConfig(allPlayers, total, warnings)}
+
+        <button class="btn btn-danger btn-full btn-lg" onclick="startGame()" ${blockReason || waitingForHost ? 'disabled' : ''}>
+          ${waitingForHost ? 'Waiting for Host to Start' : (blockReason || 'Start Game')}
+        </button>
+      `}
     </div>
     ${state.showInstructions ? renderInstructionsModal() : ''}
     ${state.showSettings ? renderSettingsModal() : ''}
+    ${isRealtime && !isJoinPanel && state.showBigRoomCode ? renderBigRoomCodeModal() : ''}
+  `;
+}
+
+function renderBigRoomCodeModal() {
+  const joinPortal = getJoinPortalUrl();
+  return `
+    <div class="modal-overlay" onclick="hideBigRoomCode()">
+      <div class="modal-content big-room-code-modal" onclick="event.stopPropagation()">
+        <div style="color:var(--text-primary);font-size:0.96rem;margin-bottom:8px">Room code</div>
+        <div class="big-room-code-value">${state.gameCode}</div>
+        <div style="margin:10px 0 8px;font-weight:600">Join portal URL</div>
+        <div class="input-row" style="margin-bottom:14px">
+          <input type="text" class="input" readonly value="${joinPortal || 'Available after room service starts'}"/>
+          <button class="copy-btn" id="copyPortalBtnLarge" onclick="copyJoinPortal('copyPortalBtnLarge')">📋 Copy</button>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="hideBigRoomCode()">Close</button>
+      </div>
+    </div>
   `;
 }
 
 // -----------------------------------------------------------------------------
 // ROLE CONFIG (shared)
 // -----------------------------------------------------------------------------
+
+function renderJoinReadonlySetup(allPlayers) {
+  const story = state.selectedStory || STORY_PRESETS[0];
+  const locations = Array.isArray(story?.locations) ? story.locations : [];
+  const floorplan = story?.floorplan || {};
+  const floors = Array.isArray(floorplan.floors) ? floorplan.floors : [];
+  const primaryFloor = floors[0] || null;
+  const connectionCount = Array.isArray(story?.mapGraph?.edges) ? story.mapGraph.edges.length : 0;
+  const environmentProfile = ENVIRONMENT_PROFILES.find(profile => profile.id === state.settings.environmentProfile) || ENVIRONMENT_PROFILES[0];
+  const signedPct = (value) => {
+    const pct = Math.round((Number(value || 0)) * 100);
+    if (pct === 0) return 'No change';
+    return `${pct > 0 ? '+' : ''}${pct}%`;
+  };
+  const exposureValues = locations.map(location => clampExposure(location.exposure ?? 0.5));
+  const minExposure = exposureValues.length ? getExposurePct(Math.min(...exposureValues)) : 0;
+  const maxExposure = exposureValues.length ? getExposurePct(Math.max(...exposureValues)) : 0;
+  const avgExposure = exposureValues.length
+    ? getExposurePct(exposureValues.reduce((sum, value) => sum + value, 0) / exposureValues.length)
+    : 0;
+  const disturbanceValues = KILL_METHODS.map(method => clampExposure(method.noise ?? 0));
+  const minDisturbance = disturbanceValues.length ? getExposurePct(Math.min(...disturbanceValues)) : 0;
+  const maxDisturbance = disturbanceValues.length ? getExposurePct(Math.max(...disturbanceValues)) : 0;
+  const cureDifficultyValues = KILL_METHODS.map(method => clampExposure(method.cureDifficulty ?? 0.6));
+  const minCureDifficulty = cureDifficultyValues.length ? getExposurePct(Math.min(...cureDifficultyValues)) : 0;
+  const maxCureDifficulty = cureDifficultyValues.length ? getExposurePct(Math.max(...cureDifficultyValues)) : 0;
+  const preset = state.selectedPreset;
+  const mafiaCount = state.roleConfig.mafia || 0;
+  const doctorCount = state.roleConfig.doctor || 0;
+  const detectiveCount = state.roleConfig.detective || 0;
+  const villagerCount = Math.max(0, allPlayers.length - mafiaCount - doctorCount - detectiveCount);
+  const assigned = mafiaCount + doctorCount + detectiveCount + villagerCount;
+
+  return `
+    <div class="card">
+      <div class="section-label">📖 Selected Setting</div>
+      <div class="setting-box" style="margin-bottom:12px">
+        <div class="setting-name">${story.name}</div>
+        <div class="setting-desc">${story.setting}</div>
+      </div>
+      <div style="color:var(--text-primary);font-size:0.95rem;line-height:1.45">
+        <div><strong>Theme:</strong> ${story.mood}</div>
+        <div><strong>Map scope:</strong> ${locations.length} playable locations in this setting.</div>
+        <div><strong>Exposure range:</strong> ${minExposure}% to ${maxExposure}% (average ${avgExposure}%). Higher exposure gives better clue quality but raises witness/risk pressure.</div>
+        <div><strong>Disturbance range:</strong> ${minDisturbance}% to ${maxDisturbance}%. Louder attacks increase witness likelihood during night resolution.</div>
+        <div><strong>Doctor difficulty:</strong> cure difficulty spans ${minCureDifficulty}% to ${maxCureDifficulty}%. Harder methods reduce stabilization odds.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-label">🗺️ Map Snapshot</div>
+      <div class="setting-box" style="margin-bottom:12px">
+        <div class="setting-name">${primaryFloor?.name || 'Map overview'}</div>
+        <div class="setting-desc">
+          ${primaryFloor
+            ? 'Top floorplan preview for this setting. Full map and room notes are available from the map button during gameplay.'
+            : 'No floorplan image is available yet for this setting.'}
+        </div>
+      </div>
+      ${primaryFloor?.image
+        ? `<img src="${primaryFloor.image}" alt="${story.name} map preview" class="readonly-map-preview"/>`
+        : '<div class="readonly-map-missing">No map image available.</div>'}
+      <div class="readonly-map-meta">
+        <div><strong>Floors:</strong> ${floors.length}</div>
+        <div><strong>Rooms:</strong> ${locations.length}</div>
+        <div><strong>Connections:</strong> ${connectionCount}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-label">🌡️ Selected Environment Rules</div>
+      <div class="setting-box" style="margin-bottom:12px">
+        <div class="setting-name">${environmentProfile.name}</div>
+        <div class="setting-desc">${environmentProfile.desc}</div>
+      </div>
+      <div style="color:var(--text-primary);font-size:0.95rem;line-height:1.45">
+        <div><strong>Exposure impact:</strong> ${signedPct((environmentProfile.exposureMultiplier || 1) - 1)} to player exposure checks.</div>
+        <div><strong>Disturbance impact:</strong> ${signedPct((environmentProfile.disturbanceMultiplier || 1) - 1)} to night attack disturbance.</div>
+        <div><strong>Doctor save impact:</strong> ${signedPct(-(environmentProfile.cureDifficultyShift || 0))} effective save pressure shift.</div>
+      </div>
+    </div>
+    ${preset ? `
+      <div class="card">
+        <div class="section-label">🎛️ Selected Preset</div>
+        <div class="preset-card selected" style="border-color:${preset.color};background:${preset.color}20;cursor:default">
+          <div class="preset-name" style="color:${preset.color}">${preset.name}</div>
+          <div class="preset-desc">${preset.description}</div>
+        </div>
+      </div>
+    ` : ''}
+    <div class="card">
+      <div class="section-label">⚖️ Role Counts (Read-only)</div>
+      <div style="border-top:1px solid var(--border-color);padding-top:12px">
+        <div class="role-row">
+          <div class="role-info"><span>${ROLES.mafia.icon}</span><span>${ROLES.mafia.name}</span></div>
+          <div class="role-count">${mafiaCount}</div>
+        </div>
+        <div class="role-row">
+          <div class="role-info"><span>${ROLES.doctor.icon}</span><span>${ROLES.doctor.name}</span></div>
+          <div class="role-count">${doctorCount}</div>
+        </div>
+        <div class="role-row">
+          <div class="role-info"><span>${ROLES.detective.icon}</span><span>${ROLES.detective.name}</span></div>
+          <div class="role-count">${detectiveCount}</div>
+        </div>
+        <div class="role-row">
+          <div class="role-info"><span>${ROLES.villager.icon}</span><span>${getRoleDisplayName('villager')}s</span></div>
+          <div class="role-count">${villagerCount}</div>
+        </div>
+      </div>
+      <div class="role-summary">
+        <span class="stat-display">Assigned: ${assigned}/${allPlayers.length}</span>
+      </div>
+      <div style="color:var(--text-primary);font-size:0.93rem;margin-top:10px">Host controls setup changes and starts the game.</div>
+    </div>
+  `;
+}
 
 function renderRoleConfig(allPlayers, total, warnings) {
   return `
@@ -491,7 +814,6 @@ function renderRoleConfig(allPlayers, total, warnings) {
           <span class="stat-display">👤 ${getRoleDisplayName('villager')}s: ${Math.max(0, allPlayers.length - state.roleConfig.mafia - state.roleConfig.doctor - state.roleConfig.detective)}</span>
           <span class="stat-display">Assigned: ${total}/${allPlayers.length}</span>
         </div>
-        ${state.selectedPreset?.id === 'classic' ? '<div style="color:var(--text-secondary);font-size:0.85rem;margin-top:8px">Classic target at 12 players: 5 Mafia / 3 Doctor / 2 Detective.</div>' : ''}
         ${warnings.length > 0 ? `<div class="warning-msg">${warnings.join(' ')}</div>` : ''}
       </div>
     </div>
@@ -698,60 +1020,101 @@ function renderGame() {
 
 function renderMapModal() {
   const graph = state.selectedStory?.mapGraph || { nodes: [], edges: [] };
-  const nodes = graph.nodes || [];
-  const edges = graph.edges || [];
+  const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const nodesById = Object.fromEntries(nodes.map(node => [node.id, node]));
+  const floorplan = state.selectedStory?.floorplan || {};
+  const floors = Array.isArray(floorplan.floors) ? floorplan.floors : [];
   const exposureByNodeId = Object.fromEntries((state.selectedStory.locations || []).map(location => [location.id, location.exposure || 0.5]));
-  const width = 560;
-  const height = 330;
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const orbit = Math.min(width, height) * 0.35;
-  const nodeCoords = {};
+  const activeFloor = floors.find(floor => floor.id === state.selectedMapFloor) || floors[0] || null;
+  const roomItems = Array.isArray(activeFloor?.rooms) ? activeFloor.rooms : [];
+  const roomNodeIds = new Set(roomItems.map(room => room.nodeId));
+  const roomCards = [...roomItems]
+    .map(room => {
+      const node = nodesById[room.nodeId] || { id: room.nodeId, name: room.nodeId, type: 'room' };
+      const exposure = exposureByNodeId[room.nodeId] ?? 0.5;
+      return {
+        ...room,
+        node,
+        exposure
+      };
+    })
+    .sort((a, b) => (a.exposure || 0) - (b.exposure || 0));
 
-  nodes.forEach((node, index) => {
-    const angle = (Math.PI * 2 * index) / Math.max(1, nodes.length);
-    nodeCoords[node.id] = {
-      x: Math.round(centerX + Math.cos(angle) * orbit),
-      y: Math.round(centerY + Math.sin(angle) * orbit)
-    };
-  });
+  const connectionNotes = (floorplan.connectionNotes || [])
+    .filter(note => roomNodeIds.has(note.from) || roomNodeIds.has(note.to))
+    .map(note => {
+      const fromName = nodesById[note.from]?.name || note.from;
+      const toName = nodesById[note.to]?.name || note.to;
+      return {
+        title: `${fromName} ↔ ${toName}`,
+        note: note.note || ''
+      };
+    });
+
+  const fallbackCards = nodes
+    .map(node => ({
+      node,
+      exposure: exposureByNodeId[node.id] ?? 0.5,
+      note: 'Floorplan note pending for this node.'
+    }))
+    .sort((a, b) => (a.exposure || 0) - (b.exposure || 0));
+  const displayCards = roomCards.length > 0 ? roomCards : fallbackCards;
+  const activeTitle = activeFloor?.name || 'Map';
 
   return `
     <div class="modal-overlay" onclick="closeMap()">
       <div class="map-modal" onclick="event.stopPropagation()">
         <div class="map-modal-header">
           <div>
-            <div class="section-label" style="margin-bottom:4px">🗺️ ${state.selectedStory.name} Map</div>
+            <div class="section-label" style="margin-bottom:4px">🗺️ ${state.selectedStory.name} Floorplan</div>
             <div style="color:var(--text-secondary);font-size:0.86rem">Exposure = your exposure to information and threats.</div>
           </div>
           <button class="btn btn-secondary btn-small" onclick="closeMap()">Close</button>
         </div>
-        <svg viewBox="0 0 ${width} ${height}" class="map-svg">
-          ${edges.map(edge => {
-            const from = nodeCoords[edge.from];
-            const to = nodeCoords[edge.to];
-            if (!from || !to) return '';
-            const opacity = Math.max(0.18, Math.min(0.85, Number(edge.hearing || 0.5)));
-            return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="rgba(148,163,184,${opacity})" stroke-width="${Math.max(1, Number(edge.distance || 1))}"/>`;
-          }).join('')}
-          ${nodes.map(node => {
-            const point = nodeCoords[node.id];
-            const exposure = getExposureColor(exposureByNodeId[node.id] ?? 0.5);
-            return `
-              <g>
-                <circle cx="${point.x}" cy="${point.y}" r="21" fill="rgba(15,23,42,0.9)" stroke="${exposure}" stroke-width="2.6"/>
-                <text x="${point.x}" y="${point.y - 28}" text-anchor="middle" font-size="11" fill="#e2e8f0">${node.name}</text>
-              </g>
-            `;
-          }).join('')}
-        </svg>
-        <div class="map-node-grid">
-          ${nodes.map(node => `
-            <div class="map-node-pill">
-              <span class="map-node-name">${node.name}</span>
-              <span class="map-node-type">${node.type.replace(/_/g, ' ')}</span>
+
+        ${floors.length > 0 ? `
+          <div class="floorplan-tabs">
+            ${floors.map(floor => `
+              <button class="btn btn-small ${activeFloor?.id === floor.id ? 'btn-primary' : 'btn-secondary'}"
+                      onclick="setMapFloor('${floor.id}')">
+                ${floor.name}
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <div class="floorplan-layout">
+          <div class="floorplan-image-card">
+            <div class="floorplan-image-label">${activeTitle}</div>
+            ${activeFloor?.image
+              ? `<img src="${activeFloor.image}" alt="${activeTitle} floorplan" class="floorplan-image"/>`
+              : '<div class="floorplan-image-missing">No floorplan image available for this floor.</div>'}
+          </div>
+          <div class="floorplan-room-column">
+            <div class="floorplan-room-title">Room Notes</div>
+            ${displayCards.map(item => `
+              <div class="floorplan-room-card">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                  <span class="map-node-name">${item.node.name}</span>
+                  <span class="exposure-badge" style="color:${getExposureColor(item.exposure || 0)};border-color:${getExposureColor(item.exposure || 0)}">
+                    Exposure ${getExposurePct(item.exposure || 0)}%
+                  </span>
+                </div>
+                <div class="map-node-type">${item.node.type.replace(/_/g, ' ')}</div>
+                <div class="floorplan-room-note">${item.note || 'No additional room note.'}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="floorplan-connections">
+          <div class="floorplan-room-title">Connection Notes</div>
+          ${connectionNotes.length > 0 ? connectionNotes.map(connection => `
+            <div class="floorplan-connection-item">
+              <strong>${connection.title}</strong>
+              <div>${connection.note || 'Connection exists in the route graph.'}</div>
             </div>
-          `).join('')}
+          `).join('') : '<div class=\"floorplan-connection-item\">No cross-room notes listed for this floor.</div>'}
         </div>
       </div>
     </div>
@@ -1171,7 +1534,7 @@ function renderDoctorPhase(alivePlayers) {
     <div class="card" style="border-color:#2563eb">
       <div class="section-label" style="color:#60a5fa">💉 Save one person from death tonight</div>
       <p style="color:var(--text-secondary);margin-bottom:6px">Save chance is never guaranteed and drops when multiple attackers focus one target.</p>
-      <p style="color:var(--text-secondary);margin-bottom:12px">Current likely attack profile: <strong>${method.name}</strong> (disturbance ${getExposurePct(method.noise || 0)}%). Estimated save chance against this profile: <strong>${Math.round(saveChance * 100)}%</strong>.</p>
+      <p style="color:var(--text-primary);margin-bottom:12px">Current likely attack profile: <strong style="color:#93c5fd">${method.name}</strong> (disturbance ${getExposurePct(method.noise || 0)}%). Estimated save chance against this profile: <strong style="color:#7dd3fc">${Math.round(saveChance * 100)}%</strong>.</p>
       ${likelyVictim ? `<p style="color:#bfdbfe;margin-bottom:10px">Most likely target by mafia vote pattern: <strong>${likelyVictim.name}</strong></p>` : ''}
       <div class="target-grid">
         ${alivePlayers.map(p => `
@@ -1354,41 +1717,108 @@ function renderInstructionsModal() {
   let content = '';
   if (activeTab === 'rules') {
     content = `
-      <h3 style="color:var(--purple-accent);margin-bottom:12px">Read This Full Variant</h3>
-      <p><strong>Win goals:</strong> Town wins by eliminating all Mafia. Mafia wins when Mafia living count is greater than Town living count.</p>
-      <p style="margin-top:8px"><strong>Exposure:</strong> exposure is your exposure to information and threats. Higher exposure usually gives stronger clues, but it also makes you easier to notice.</p>
-      <p style="margin-top:8px;color:var(--text-secondary)">Important social rule: a player saying something does not prove it is true. They may be reporting a real clue, lying as Mafia, or trolling. Use timelines, nearby sightings, and contradictions before voting.</p>
-      <div style="margin-top:14px">
-        <h4 style="margin-bottom:4px">1) Reveal</h4>
-        <p style="color:var(--text-secondary)">Each player privately views their role. Keep this private.</p>
+      <h3 style="color:var(--purple-accent);margin-bottom:8px">Instructions</h3>
+      <p style="margin-bottom:10px;color:var(--text-primary)"><strong>Read this fully before play:</strong> this is a Mafia variant, not standard Mafia. Location choices, exposure, disturbance, map proximity, and narrator rules all change how you should play.</p>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Start With Core Win Rules</h4>
+        <p style="color:var(--text-primary)">Town wins by eliminating every Mafia. Mafia wins only when living Mafia are greater than living Town. Equality is <strong>not</strong> enough for Mafia.</p>
+        <p class="footnote" style="margin-top:6px">Town means everyone who is not Mafia: Villager/Guest/Passenger/Survivor/Crewmate, Doctor, and Detective.</p>
       </div>
-      <div style="margin-top:10px">
-        <h4 style="margin-bottom:4px">2) Day Planning</h4>
-        <p style="color:var(--text-secondary)">Choose a location and action. Actions are ordered low exposure to high exposure. Snoop actions are the easiest way to gather stronger clues.</p>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">How This Variant Changes Classic Mafia</h4>
+        <p style="color:var(--text-primary)">Classic Mafia often treats night as mostly hidden role actions. This variant adds structured location planning and probability tradeoffs. You choose where to be, how risky to act, and what information to pursue. This means your choices create evidence patterns even when no one openly confesses.</p>
+        <p style="color:var(--text-primary);margin-top:6px">If you play this like pure social bluffing without tracking location timing, you will miss most useful clues.</p>
       </div>
-      <div style="margin-top:10px">
-        <h4 style="margin-bottom:4px">3) Night</h4>
-        <p style="color:var(--text-secondary)">Mafia choose target + attack method. Non-mafia players choose a night stance. Doctors choose who to save in the morning phase.</p>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Exposure (Most Important Concept)</h4>
+        <p style="color:var(--text-primary)">Exposure = your exposure to information and threats. High exposure increases the chance of useful clues, but also increases the chance of being seen, tracked, or implicated. Low exposure is safer but often yields weaker or inconclusive info.</p>
+        <p style="color:var(--text-primary);margin-top:6px">Action lists are sorted from low to high percentage so you can intentionally choose safer vs riskier routes.</p>
       </div>
-      <div style="margin-top:10px">
-        <h4 style="margin-bottom:4px">4) Morning + Discussion + Vote</h4>
-        <p style="color:var(--text-secondary)">Morning announces outcomes and cause details. Discussion happens before voting. Then each player votes; tallies are shown.</p>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Roles In Practical Terms</h4>
+        <p style="color:var(--text-primary)"><strong>Mafia:</strong> chooses location routes by risk and at night chooses both target and attack method (disturbance level matters).</p>
+        <p style="color:var(--text-primary)"><strong>Detective:</strong> better clue reliability and lower notice risk; strongest role for contradiction checks.</p>
+        <p style="color:var(--text-primary)"><strong>Doctor:</strong> no medicine loadout in this version; doctor chooses who to save in morning based on likely victim + method profile.</p>
+        <p style="color:var(--text-primary)"><strong>Town role (setting-named):</strong> still active at night with stance decisions that influence awareness quality.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Phase Loop (What You Actually Do)</h4>
+        <p style="color:var(--text-primary)"><strong>1) Reveal:</strong> private role view only. Never read role text aloud.</p>
+        <p style="color:var(--text-primary)"><strong>2) Day Planning:</strong> choose location + action (+ optional target if action requires one). Snoop-tagged actions are clue-focused.</p>
+        <p style="color:var(--text-primary)"><strong>3) Night:</strong> Mafia chooses kill target + method. Non-mafia choose night stance.</p>
+        <p style="color:var(--text-primary)"><strong>4) Morning Doctor:</strong> if needed, doctor chooses save target.</p>
+        <p style="color:var(--text-primary)"><strong>5) Announcement:</strong> public outcome appears before final winner resolution.</p>
+        <p style="color:var(--text-primary)"><strong>6) Discussion:</strong> compare timelines and contradictions before voting.</p>
+        <p style="color:var(--text-primary)"><strong>7) Vote:</strong> one vote per living voter, with tally shown in result phase.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Disturbance And Survival</h4>
+        <p style="color:var(--text-primary)">Attack methods display disturbance percentages. Lower disturbance is generally quieter (fewer witnesses, often better stabilization chance). Higher disturbance is louder (more witness potential, generally harder stabilization).</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">How To Read Intel Correctly</h4>
+        <p style="color:var(--text-primary)">Morning intel is not always definitive. Treat each line as evidence weight, not truth. Strong lines are useful, inconclusive lines still matter when cross-referenced with map proximity and player claims.</p>
+        <p style="color:var(--text-primary);margin-top:6px">Best practice: build a shortlist of two suspects and test every statement against timing + nearby presence + role incentives.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Discussion Discipline (Critical)</h4>
+        <p style="color:var(--text-primary)">A spoken claim is not proof. Players can tell truth, lie as Mafia, or troll. Ask for specifics: location, route timing, who was nearby, and what exactly was observed. Contradictions across these details are often stronger than dramatic accusations.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Narrator Expectations</h4>
+        <p style="color:var(--text-primary)">If narrator mode is Human, narrator gets first phase turn and must deliver cue before player actions continue. In single-device games this cue is read aloud. In multi-device games this cue is posted in chat.</p>
       </div>
     `;
   } else {
     content = `
-      <h3 style="color:var(--purple-accent);margin-bottom:12px">👥 Modes</h3>
-      <p><strong>Solo:</strong> one human player + bots.</p>
-      <p style="margin-top:8px"><strong>Multiplayer single-device:</strong> pass-and-play on one device. Discussion prompt appears before private vote turns.</p>
-      <p style="margin-top:8px"><strong>Multiplayer multi-device:</strong> each device joins the same room. Keep the shared chat visible during discussion, then host advances to voting.</p>
-      <p style="margin-top:8px"><strong>Narrator mode:</strong> narrator gets a phase turn at the start of each phase. In single-device, cue is read aloud. In multi-device, cue is posted in chat.</p>
-      <p style="margin-top:8px"><strong>Device order:</strong> host can reorder devices and players on each device to control pass/vote flow.</p>
+      <h3 style="color:var(--purple-accent);margin-bottom:8px">Mode Guide</h3>
+      <p style="color:var(--text-primary)"><strong>Solo:</strong> one human + bots. Great for learning the evidence model, exposure tradeoffs, and voting rhythm.</p>
+      <p style="color:var(--text-primary);margin-top:8px"><strong>Single-device multiplayer:</strong> pass-and-play on one screen. Use this for couch/local sessions.</p>
+      <p style="color:var(--text-primary);margin-top:8px"><strong>Multi-device multiplayer:</strong> each device joins the same room code. Host controls room start and device-level ordering.</p>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Host vs Join Flow</h4>
+        <p style="color:var(--text-primary)">Host creates/opens the room and shares the fast link or room code. Joiners enter code and then add their local players. Every device can rename itself so turn flow is readable.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Device + Player Grouping</h4>
+        <p style="color:var(--text-primary)">Players are grouped by device in the lobby. This matters because turn progression and discussions are easier to manage when everyone can see which players belong to each connected device.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Bots In Multiplayer</h4>
+        <p style="color:var(--text-primary)">Bots are global to the room and host-managed. Joiners cannot add/remove bots. This prevents conflicting bot state from multiple clients.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Map + Chat Usage</h4>
+        <p style="color:var(--text-primary)">Use the map button during play to review floorplan context, then bring evidence into discussion chat. In multi-device sessions, chat is part of pre-vote analysis, not just flavor text.</p>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4 style="margin-bottom:6px">Practical First Game Setup</h4>
+        <p style="color:var(--text-primary)">Recommended for first run: 4-6 players, one doctor, one detective, and a balanced preset. Keep narrator mode on Human if someone is facilitating live, or Auto if no facilitator is available.</p>
+      </div>
     `;
   }
 
   return `
     <div class="modal-overlay" onclick="hideInstructions()">
       <div class="instructions-modal" onclick="event.stopPropagation()">
+        <div style="padding:14px 20px 8px;border-bottom:1px solid var(--border-color)">
+          <div style="font-size:1.22rem;font-weight:700">Instructions</div>
+          <div class="footnote" style="margin-top:4px">Read these before starting. This game is a Mafia variant with custom systems and phase rules.</div>
+        </div>
         <div class="instructions-tabs">
           ${tabs.map(t => `
             <button class="instructions-tab ${activeTab === t.id ? 'active' : ''}" onclick="setInstructionsTab('${t.id}')">
@@ -1406,6 +1836,30 @@ function renderInstructionsModal() {
 }
 
 function renderSettingsModal() {
+  const soloNarratorRestricted = state.entryPage === 'solo';
+  const readonlySetupClient = state.multiplayerMode === 'realtime' && state.network.connected && !state.network.isHost;
+  const networkingMode = String(state.settings.networkShareMode || 'origin');
+  const lanAvailable = typeof isLanShareModeAvailable === 'function' ? isLanShareModeAvailable() : false;
+  const backendDetected = Boolean(state.network.shareHints?.backendDetected);
+  const lanPortal = String(state.network.shareHints?.lanPortalUrl || '').trim();
+  const originPortal = String(state.network.shareHints?.originPortalUrl || '').trim();
+  const preferredPortal = String(state.network.shareHints?.preferredPortalUrl || '').trim();
+  const customPortal = String(state.settings.customShareBaseUrl || '').trim();
+  const customRelay = String(state.settings.customRelayUrl || '').trim();
+
+  if (readonlySetupClient) {
+    return `
+      <div class="modal-overlay" onclick="hideSettings()">
+        <div class="modal-content" style="text-align:left;border-color:var(--border-color);max-height:85vh;overflow:auto" onclick="event.stopPropagation()">
+          <h2 style="margin-bottom:12px">⚙️ Current Game Setup</h2>
+          <div class="footnote" style="margin-bottom:12px">Only the host can change setup. This view shows the active selection and rule details.</div>
+          ${renderJoinReadonlySetup(getAllPlayers())}
+          <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="hideSettings()">Close</button>
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <div class="modal-overlay" onclick="hideSettings()">
       <div class="modal-content" style="text-align:left;border-color:var(--border-color)" onclick="event.stopPropagation()">
@@ -1430,8 +1884,9 @@ function renderSettingsModal() {
           <div style="margin-bottom:8px">Narrator Mode</div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-small ${state.settings.narratorMode === 'auto' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('auto')">Auto</button>
-            <button class="btn btn-small ${state.settings.narratorMode === 'human' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('human')">Human</button>
+            ${soloNarratorRestricted ? '' : `<button class="btn btn-small ${state.settings.narratorMode === 'human' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('human')">Human</button>`}
           </div>
+          ${soloNarratorRestricted ? `<div class="footnote" style="margin-top:8px">Solo mode uses Auto narrator only.</div>` : ''}
         </div>
         <div class="settings-row" style="display:block">
           <div style="margin-bottom:8px">Narrator Tone</div>
@@ -1443,6 +1898,41 @@ function renderSettingsModal() {
               </button>
             `).join('')}
           </div>
+        </div>
+        <div class="settings-row" style="display:block">
+          <div style="margin-bottom:8px">Networking (multi-device)</div>
+          <div class="mode-switch-row" style="margin-bottom:8px">
+            <button class="btn btn-small ${networkingMode === 'lan' ? 'btn-primary' : 'btn-secondary'} ${lanAvailable ? '' : 'network-option-disabled'}"
+                    onclick="setNetworkingMode('lan')"
+                    ${lanAvailable ? '' : 'disabled'}
+                    title="${lanAvailable ? 'Prefer LAN backend URL' : 'LAN URL unavailable on this host'}">
+              LAN Host URL
+            </button>
+            <button class="btn btn-small ${networkingMode === 'origin' ? 'btn-primary' : 'btn-secondary'}" onclick="setNetworkingMode('origin')">Same URL</button>
+            <button class="btn btn-small ${networkingMode === 'custom' ? 'btn-primary' : 'btn-secondary'}" onclick="setNetworkingMode('custom')">Custom</button>
+          </div>
+          <div class="footnote">
+            ${backendDetected
+              ? (lanAvailable ? 'Backend detected. LAN mode shares http://<LAN_IP>:8000 style links.' : 'Backend detected, but no LAN IP was detected. Using Same URL mode.')
+              : 'Room service is not ready on this page yet. Press Host Game to start it.'}
+          </div>
+          ${networkingMode === 'custom' ? `
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+              <label style="font-size:0.86rem;color:var(--text-primary)">Custom portal URL (http/https)</label>
+              <input type="text" class="input" value="${customPortal.replace(/"/g, '&quot;')}" oninput="setCustomShareBaseUrl(this.value)" placeholder="https://example.com/"/>
+              <label style="font-size:0.86rem;color:var(--text-primary)">Custom relay URL (ws/wss)</label>
+              <input type="text" class="input" value="${customRelay.replace(/"/g, '&quot;')}" oninput="setCustomRelayUrl(this.value)" placeholder="wss://example.com:8765"/>
+            </div>
+          ` : ''}
+          <details style="margin-top:10px">
+            <summary style="cursor:pointer;color:var(--text-secondary);font-size:0.84rem">Advanced networking details</summary>
+            <div style="margin-top:8px;font-size:0.84rem;color:var(--text-primary);line-height:1.5">
+              <div><strong>Backend API:</strong> ${backendDetected ? 'Detected' : 'Not detected'}</div>
+              <div><strong>Preferred portal URL:</strong> ${preferredPortal || 'Unavailable'}</div>
+              <div><strong>LAN portal URL:</strong> ${lanPortal || 'Unavailable'}</div>
+              <div><strong>Same-origin portal URL:</strong> ${originPortal || 'Unavailable'}</div>
+            </div>
+          </details>
         </div>
         <div class="settings-row" style="display:block">
           <div style="margin-bottom:8px">Bot Turn Pace: ${state.botDelayMs}ms</div>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
+  <rect width="960" height="620" fill="#1f2937"/>
+  <text x="70" y="90" fill="#f8fafc" font-size="30" font-family="Georgia">Station Prometheus - Engineering</text>
+
+  <rect x="150" y="170" width="300" height="230" rx="16" fill="#7f1d1d" stroke="#fda4af"/>
+  <text x="188" y="290" fill="#fee2e2" font-size="28" font-family="Georgia">Reactor Tunnel</text>
+  <text x="188" y="324" fill="#fecaca" font-size="16" font-family="Georgia">Extreme heat + high disturbance risk</text>
+
+  <rect x="530" y="220" width="270" height="170" rx="16" fill="#1e40af" stroke="#93c5fd"/>
+  <text x="612" y="304" fill="#dbeafe" font-size="28" font-family="Georgia">Airlock</text>
+  <text x="612" y="336" fill="#bfdbfe" font-size="16" font-family="Georgia">Gray note: hull access corridor</text>
+
+  <path d="M450 284 L530 304" stroke="#fef08a" stroke-width="5"/>
+</svg>

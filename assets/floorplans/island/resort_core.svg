@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
+  <rect width="960" height="620" fill="#082f49"/>
+  <text x="70" y="90" fill="#cffafe" font-size="30" font-family="Georgia">Coral Bay Resort - Core Buildings</text>
+
+  <rect x="90" y="150" width="260" height="200" rx="16" fill="#164e63" stroke="#67e8f9"/>
+  <text x="116" y="250" fill="#ccfbf1" font-size="26" font-family="Georgia">Bungalow Row</text>
+
+  <rect x="380" y="150" width="260" height="200" rx="16" fill="#155e75" stroke="#a5f3fc"/>
+  <text x="420" y="250" fill="#ecfeff" font-size="26" font-family="Georgia">Main Lodge</text>
+
+  <rect x="670" y="190" width="200" height="160" rx="16" fill="#0f766e" stroke="#5eead4"/>
+  <text x="726" y="278" fill="#ccfbf1" font-size="25" font-family="Georgia">Clinic</text>
+
+  <path d="M352 250 L378 250" stroke="#e2e8f0" stroke-width="4"/>
+  <path d="M642 250 L668 250" stroke="#e2e8f0" stroke-width="4"/>
+</svg>

@@ -89,6 +89,9 @@ h2 {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn:disabled {
@@ -126,13 +129,28 @@ h2 {
 .btn-adjust { width: 32px; height: 32px; padding: 0; border-radius: 8px; font-size: 1.2rem; font-weight: bold; }
 .btn-full { width: 100%; }
 .btn-lg { padding: 16px 32px; font-size: 1.2rem; }
+.btn-icon.btn-primary,
+.btn-icon.btn-primary:hover,
+.btn-icon.btn-primary:active,
+.btn-icon.btn-primary:focus,
+.btn-icon.btn-primary:focus-visible {
+  border: none !important;
+  outline: none !important;
+  outline-color: transparent !important;
+  -webkit-focus-ring-color: transparent !important;
+  box-shadow: none !important;
+}
 .btn-icon:focus,
 .btn-icon:focus-visible {
   outline: none;
+  outline-color: transparent;
+  -webkit-focus-ring-color: transparent;
   box-shadow: none;
 }
+button::-moz-focus-inner { border: 0; }
 
 .mode-btn {
+  display: block;
   width: 100%;
   padding: 16px 20px;
   text-align: left;
@@ -140,6 +158,7 @@ h2 {
   border: 1px solid #7c3aed;
   border-radius: 12px;
   color: white;
+  text-decoration: none;
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: 12px;
@@ -166,7 +185,108 @@ h2 {
 
 .mode-switch-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .realtime-meta { display: flex; flex-direction: column; gap: 10px; }
-.realtime-row { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; color: var(--text-secondary); }
+.realtime-row { display: flex; flex-direction: column; gap: 6px; font-size: 0.98rem; color: var(--text-primary); }
+.realtime-row label { color: var(--text-primary); font-weight: 600; }
+.realtime-status-line { color: var(--text-primary); font-size: 0.98rem; line-height: 1.35; }
+.host-device-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fde68a;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-size: 1rem;
+}
+.device-name-input { cursor: text; }
+.device-name-inline {
+  width: 100%;
+  padding: 10px 2px 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1.05rem;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+.device-name-inline:hover,
+.device-name-inline:focus {
+  border-bottom-color: #c4b5fd;
+  outline: none;
+}
+.join-code-input {
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  font-weight: 700;
+}
+.portal-copy-row { margin-top: 8px; }
+.multiplayer-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.host-action-row .host-action-btn {
+  flex: 1 1 180px;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+.network-option-disabled {
+  opacity: 0.42;
+  filter: grayscale(0.25);
+}
+.qr-copy-wrap {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+.qr-touch-copy {
+  width: 180px;
+  height: 180px;
+  border-radius: 10px;
+  background-color: white;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  touch-action: manipulation;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.45);
+}
+.qr-touch-copy:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 3px;
+}
+.device-pill {
+  font-size: 0.76rem;
+  color: #dbeafe;
+  background: rgba(30, 64, 175, 0.4);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.bot-device-group {
+  border-style: dashed;
+}
+.footnote {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.support-copy {
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+.support-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
 .device-list { max-height: 180px; overflow-y: auto; }
 
 /* Player Lists */
@@ -438,6 +558,22 @@ h2 {
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
 .modal-content { background: #1e1e32; border: 1px solid #991b1b; border-radius: 16px; padding: 32px; max-width: 500px; width: 100%; text-align: center; }
 .modal-text { font-size: 1.25rem; line-height: 1.6; margin-bottom: 24px; white-space: pre-line; }
+.big-room-code-modal {
+  border-color: rgba(96, 165, 250, 0.6);
+  background: linear-gradient(180deg, rgba(30, 58, 138, 0.28) 0%, #1e1e32 100%);
+}
+.big-room-code-value {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.2rem, 10vw, 5rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #bfdbfe;
+  text-shadow: 0 0 24px rgba(96, 165, 250, 0.45);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
 
 .death-animation-card {
   margin-bottom: 16px;
@@ -490,6 +626,28 @@ h2 {
 .setting-box { background: rgba(30, 30, 50, 0.4); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
 .setting-name { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
 .setting-desc { font-size: 0.85rem; color: var(--text-secondary); }
+.readonly-map-preview {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(2, 6, 23, 0.7);
+  margin-bottom: 10px;
+}
+.readonly-map-missing {
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+.readonly-map-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
 
 /* Narrator + Chat */
 .device-turn-banner {
@@ -603,15 +761,88 @@ h2 {
   gap: 10px;
   margin-bottom: 10px;
 }
-.map-svg {
-  width: 100%;
-  max-height: 380px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 12px;
-  background: radial-gradient(circle at top, rgba(30, 41, 59, 0.5), rgba(2, 6, 23, 0.78));
+.floorplan-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
 }
+.floorplan-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.floorplan-image-card {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 10px;
+}
+.floorplan-image-label {
+  color: #e2e8f0;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.floorplan-image {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(2, 6, 23, 0.7);
+}
+.floorplan-image-missing {
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 10px;
+  padding: 20px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+.floorplan-room-column {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 10px;
+  max-height: 430px;
+  overflow: auto;
+}
+.floorplan-room-title {
+  color: #e2e8f0;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.floorplan-room-card {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(2, 6, 23, 0.45);
+  margin-bottom: 8px;
+}
+.floorplan-room-card:last-child { margin-bottom: 0; }
+.floorplan-room-note {
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  margin-top: 6px;
+  line-height: 1.35;
+}
+.floorplan-connections {
+  margin-top: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 10px;
+}
+.floorplan-connection-item {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: rgba(2, 6, 23, 0.4);
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+.floorplan-connection-item:last-child { margin-bottom: 0; }
 .map-node-grid {
-  margin-top: 10px;
+  margin-top: 8px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
@@ -643,6 +874,9 @@ h2 {
 }
 
 @media (max-width: 640px) {
+  .floorplan-layout {
+    grid-template-columns: 1fr;
+  }
   .chat-panel-corner {
     right: 8px;
     bottom: 8px;

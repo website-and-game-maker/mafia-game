@@ -1,7 +1,10 @@
-# No dependencies required for basic development
-# Add packages here as needed
-
-# Example: For a more advanced dev server
-# flask
-# livereload
-websockets>=12.0
+# Python dependencies for the Mafia local backend + realtime relay.
+#
+# The static web client (index/host/join/solo .html + scripts/ + styles/) needs
+# NO dependencies — it runs in the browser and is what GitHub Pages serves.
+#
+# The realtime relay (scripts/realtime_server.py, launched by server.py or
+# deployed to a host like Render) needs the websockets library. Version 13+ is
+# required because the relay uses the modern asyncio server API
+# (single-argument handler + process_request(connection, request)).
+websockets>=13.0

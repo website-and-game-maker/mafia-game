@@ -236,3 +236,297 @@ Pending after this coding-first slice:
   - added `completeNarratorTurn()` handler and realtime action forwarding support for it
   - ensured vote-announcement now also queues narrator chat cue in multi-device mode
 - Updated `INSTRUCTIONS.md` narration section to document that narrator cue is acknowledged before player turns continue.
+
+## 2026-02-13 - TODO recategorization + lobby reliability polish
+- Re-categorized `TODOS.md` from raw uncategorized notes into explicit priority buckets while preserving the full human-written raw list.
+- Updated `AGENTS.md` priority taxonomy to match current owner scheme:
+  - Priority-3 `Feature Addition`
+  - Priority-4 `Multiplayer Management`
+  - Priority-5 `Polishing`
+- Implemented lobby/realtime UX fixes:
+  - added `network.statusDetail` guidance text for offline/connecting/connected states
+  - added `joined_room` message handling to sync room code/detail status
+  - added host `Show Large` room-code modal (`showBigRoomCode`/`hideBigRoomCode`)
+  - removed redundant setup-screen `?` icon (How to Play button remains)
+  - added focus persistence in `render()` to keep text inputs active across rerenders (fixes device rename focus-drop case)
+- Synced docs:
+  - `INSTRUCTIONS.md` now mentions large room-code display and connection guidance behavior in multi-device mode.
+- Validation completed:
+  - `bash scripts/run_quick_checks.sh` (PASS)
+  - `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js` (PASS)
+  - targeted Playwright script for setup icon removal + large room-code modal + focus persistence (PASS)
+  - targeted two-page realtime host/join connectivity script with relay server (PASS: host/join both `Connection: Connected`)
+- Updated `TESTING_LOG.md` with Session 9 details for this pass.
+
+## 2026-02-13 - Major overhauls closed + full 10-run validation
+- Completed both major overhauls:
+  - project split into entry portal + separated flow pages (`index.html`, `host.html`, `join.html`, `game.html`) with flow bootstrap scripts (`scripts/flow_host.js`, `scripts/flow_join.js`, `scripts/flow_game.js`)
+  - floorplan map presentation implemented with per-floor SVG assets and room/connection annotations from `scripts/geography_data.js`
+- Updated automated test tooling for the new flows:
+  - fixed `scripts/playwright_ten_run_matrix.js` selectors and progression logic (`Reveal My Role`, stall detection, modern preamble)
+  - updated `scripts/playwright_button_sweep.js` for portal navigation and current gameplay controls (removed obsolete medicine checks)
+- Executed validation runs:
+  - `bash scripts/run_quick_checks.sh` -> PASS
+  - `NODE_PATH=$(npm root -g) node scripts/playwright_ten_run_matrix.js` -> PASS (`10/10`)
+    - 4 solo runs
+    - 3 single-device pass-and-play runs
+    - 3 realtime host/join runs
+  - `NODE_PATH=$(npm root -g) node scripts/playwright_button_sweep.js` -> PASS
+- Documentation alignment updates:
+  - `INSTRUCTIONS.md` updated for floorplan map behavior and explicit portal/entry-page model
+  - `AGENTS.md` updated for new page/script layout and floorplan asset expectations
+- TODO lifecycle cleanup:
+  - removed tested categorized items
+  - removed checked raw uncategorized items after verification
+  - reset `TODOS.md` to active-only sections with no remaining items
+- Logged this validation in `TESTING_LOG.md` as Session 10.
+
+## 2026-02-14 - Final priority closure + Playwright-only verification
+- Re-aligned app entry and flow pages with the latest request:
+  - `index.html` remains the main in-app setup entry (solo/multiplayer)
+  - `host.html` remains host-focused with host-only lobby behavior
+  - `join.html` and `game.html` are lightweight redirects into the main app URL flow
+  - removed obsolete flow bootstrap scripts (`scripts/flow_host.js`, `scripts/flow_join.js`, `scripts/flow_game.js`)
+- Completed and validated requested UI/UX fixes:
+  - back navigation behavior from multiplayer/flow pages
+  - removed visible `?` focus/border artifact with stronger button-state CSS overrides
+  - standardized copy interactions for room code, join portal URL, fast link, and QR-click shortcut
+  - removed low-contrast critical lobby text and preserved subdued tone for footnotes only
+  - removed classic 12-player helper line from role config UI
+  - updated in-app modal labeling to `Instructions` + explicit variant-warning subheader
+  - expanded `INSTRUCTIONS.md` substantially as a detailed Mafia-variant guide
+- Completed major multiplayer overhaul requirements:
+  - host/join split in multiplayer panel on `index.html`
+  - prominent join-code input for join flow
+  - host-only controls on host page (no join controls)
+  - grouped players-by-device section with host remove-device control
+  - host-only bot management behavior retained
+  - large room-code modal now includes join portal URL
+  - removed regenerate-code control
+  - room-code collision guard validated across concurrent host contexts
+  - URL state + local cache persistence retained for refresh resilience
+- Fixed realtime edge-case bug found during testing:
+  - kicked-client status was overwritten on socket close; updated close handler to preserve host-removal state message.
+- Hardened Playwright automation for dynamic rerenders:
+  - updated click helpers in `scripts/playwright_ten_run_matrix.js` and `scripts/playwright_button_sweep.js` with short-timeout click + dispatch fallback.
+- Final verification (Playwright only):
+  - targeted requirement suite: `17/17 passed`
+  - full button sweep: `PASS`
+  - 10-run matrix on final code state: `10/10 passed`
+- Lifecycle cleanup:
+  - removed fully tested categorized TODO items
+  - removed verified raw uncategorized notes
+  - left `TODOS.md` active-only with no pending items.
+
+## 2026-02-14 - Active TODO closure (settings-math + absolute URL share)
+- Added/finished active TODO implementation:
+  - ensured share URL generation stays absolute HTTP(S) in host UI (`scripts/game.js`), including join portal + fast join link.
+  - finalized LAN-preferred share hint consumption via `/api/network-info` and kept advanced alternates in host share card.
+  - completed settings-overhaul slice with explicit environment profile rule impacts surfaced in read-only join setup summary (`scripts/render.js`).
+  - aligned docs (`INSTRUCTIONS.md`) to state that presets are role-only templates while Environment Rules in Settings modify real gameplay calculations.
+- Added targeted Playwright suite `scripts/playwright_active_todos.js` to validate all currently active TODO requirements end-to-end.
+- Fixed realtime relay compatibility issue in `scripts/realtime_server.py` by removing version-fragile protocol import and using version-tolerant protocol typing.
+- Playwright verification completed:
+  - `node scripts/playwright_active_todos.js` -> PASS
+  - `node scripts/playwright_join_guardrails.js` -> PASS
+  - `node scripts/playwright_button_sweep.js` -> PASS
+  - `node scripts/playwright_ten_run_matrix` -> PASS (`10/10`)
+- Removed tested active items from `TODOS.md` per active-only rule.
+
+## 2026-02-19 - Networking major-overhaul + full TODO closure
+- Updated `TODOS.md` first with new owner directives:
+  - LAN-safe backend hosting preference
+  - auto fallback to current origin when LAN unavailable
+  - static-host (VS Code Live Server) offline diagnosis handling
+  - QR interaction constraints (no extra copy button, no draggable image)
+- Implemented networking-overhaul logic in `scripts/game.js`:
+  - added networking share modes (`lan`, `origin`, `custom`) in settings state
+  - added backend/LAN detection fields in `state.network.shareHints`
+  - upgraded `/api/network-info` handling with LAN/origin parsing and fallback behavior
+  - LAN mode now auto-falls back to origin when LAN unavailable
+  - relay candidate generation now supports mode-based and custom relay URLs
+  - static-host connection failures now show explicit `python3 server.py` guidance
+- Implemented UI changes in `scripts/render.js` + `styles/main.css`:
+  - networking settings section with LAN/Same URL/Custom mode buttons + advanced details
+  - LAN option grayed out/disabled when unavailable
+  - solo mode now hides Human narrator option in both quick controls and settings modal
+  - Host Game + Disconnect actions promoted visually (larger buttons)
+  - QR section now uses click-only tile (`title="Click to copy"`), removed separate QR copy button, no `<img>` drag/save behavior
+- Extended backend API payload in `server.py` with explicit `originPortalUrl`, `lanPortalUrl`, and detection metadata.
+- Added targeted Playwright suites:
+  - `scripts/playwright_network_overhaul_checks.js`
+  - `scripts/playwright_device_name_sequence.js`
+- Validation completed:
+  - static-host diagnosis check PASS
+  - backend networking check PASS
+  - join guardrails PASS
+  - button sweep PASS
+  - device sequence PASS
+  - 10-run matrix PASS (`10/10`)
+- Cleared all tested TODO items and returned `TODOS.md` to active-only with no pending entries.
+
+## 2026-02-14 - Dedicated host/join/solo pages + unified Python backend
+- Updated TODOs first with new owner directives, then implemented page split and backend changes.
+- Routing/page-flow changes:
+  - `index.html` remains launcher/setup and now sends Multiplayer into a dedicated two-choice page (`Host Game`, `Join Game`) before entering lobby pages.
+  - `join.html` converted from redirect to full independent app shell.
+  - added `solo.html` as full independent solo app shell.
+  - `host.html` remains host-only and does not expose join-entry controls.
+- Game/runtime changes (`scripts/game.js`, `scripts/render.js`):
+  - added entry-page detection for `host`, `join`, and `solo` paths.
+  - adjusted defaults so each page opens its own correct flow (`multi_lobby` host/join, `solo_lobby` solo).
+  - updated index multiplayer behavior to show only host/join choice page.
+  - changed share/join portal generation to use `join.html`.
+  - removed fast-link label text `Direct hotlink (joins this room)`.
+  - added direct navigation handlers (`goToHostPage`, `goToJoinPage`) and entry-aware reset behavior.
+- Added unified backend launcher:
+  - new `server.py` runs static HTTP + realtime relay together.
+  - auto-selects project venv Python for relay to avoid system-package install blockers.
+  - keeps HTTP available even if relay startup fails and prints actionable status.
+- Realtime stability fix after backend-run observation:
+  - fixed `scripts/realtime_server.py` broadcast iteration to use a snapshot list and avoid `Set changed size during iteration` during disconnect cleanup.
+- Documentation alignment:
+  - updated `AGENTS.md` quick-start and layout sections for `server.py`, `solo.html`, and real `join.html`.
+- Playwright validation:
+  - `scripts/playwright_button_sweep.js` updated for new routing and passes.
+  - `scripts/playwright_ten_run_matrix.js` updated for `solo.html` transition and passes (`10/10`).
+  - targeted Playwright checks confirmed the new index multiplayer choice behavior, host-only no-join behavior, join/solo page independence, and hotlink-text removal.
+- Cleanup:
+  - removed tested items from `TODOS.md` and cleared raw uncategorized notes.
+
+## 2026-02-14 - Join flow hardening + portal URL cleanup + Playwright retest
+- Updated TODOs first with new directives, then implemented/fixed:
+  - join-code input stability on `join.html` (`#joinCodeInput` restored in join-entry + join-lobby rendering path)
+  - relay-side invalid join rejection (`scripts/realtime_server.py` now blocks non-host joins to unknown room codes)
+  - join connection state semantics (client now marks connected only after `joined_room` ack)
+  - in-session code lock for joiners (read-only join code while connected)
+  - strict join-only lobby controls (`join.html` hides host/single-device toggles and setup editing)
+  - read-only setup detail cards on join lobby (selected setting + rule-impact details, selected preset if present, role counts)
+  - drag reorder restricted to `📱 Your Device`; removed drag handles from `🧩 Devices and Players`
+  - removed legacy helper text (`This page is locked to multi-device mode.` and `Hover to see the underline.`)
+  - preset copy updated to role-balance-only wording (removed loud/noise implication text)
+  - host portal URL generation changed to clean portal base URL (no `join.html` shown)
+- Additional reliability fixes found during verification:
+  - restored missing `renderJoinEntry()` and `join_entry` render branch in `scripts/render.js` (blank join page regression)
+  - preserved `entryPage` and `realtimePanelMode` during host snapshot apply to keep join pages in join-only mode after sync
+  - restored missing `solo.html` by syncing from `solo 2.html` so routed solo entry resolves
+- Playwright verification completed:
+  - `scripts/playwright_join_guardrails.js` -> PASS
+  - `scripts/playwright_button_sweep.js` -> PASS
+  - `scripts/playwright_ten_run_matrix` -> PASS (`10/10`)
+- `TESTING_LOG.md` updated with Session 13 details.
+- `TODOS.md` cleared for this verified slice.
+
+## 2026-02-20 - Backend autoswitch + API resilience
+
+- Added frontend local-backend recovery in `scripts/game.js`:
+  - local/static origins now probe local backend candidates on port `8000`
+  - when backend is detected on a different local origin, app auto-switches to backend URL (`index.html` / `host.html` / `join.html` / `solo.html` preserved)
+  - backend-missing messaging updated to match auto-recovery behavior (removed hardcoded `python3` prompt text)
+- Extended backend API behavior in `server.py`:
+  - CORS headers for `/api/*` responses
+  - new `/api/ensure-backend` endpoint (ensures relay process is running)
+  - new `/api/health` endpoint
+  - `/api/network-info` now includes relay status (`relayRunning`)
+- Updated networking instructions in `INSTRUCTIONS.md` to describe local backend auto-switch behavior.
+- Updated Playwright coverage in `scripts/playwright_network_overhaul_checks.js`:
+  - static-host no-backend mode
+  - static-host autoswitch mode (`EXPECT_AUTOSWITCH=1`)
+- Logged verification in `TESTING_LOG.md` (Session 16).
+
+Validation executed:
+- `node --check scripts/game.js`
+- `node --check scripts/render.js`
+- `python3 -m py_compile server.py scripts/realtime_server.py`
+- `EXPECT_STATIC=1 ... node scripts/playwright_network_overhaul_checks.js` (PASS)
+- `EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1 ... node scripts/playwright_network_overhaul_checks.js` (PASS)
+- `MAFIA_BASE_URL=http://127.0.0.1:8000 ... node scripts/playwright_network_overhaul_checks.js` (PASS)
+- `... node scripts/playwright_join_guardrails.js` (PASS)
+- `... node scripts/playwright_button_sweep.js` (PASS)
+
+Notes:
+- Browser sandbox still cannot directly spawn OS processes from JS. Auto-recovery is implemented via local backend detection + origin switch when backend is reachable.
+
+## 2026-02-20 - Host click recovery + share-link safety pass
+
+- Added host-click recovery flow in `scripts/game.js`:
+  - `hostRealtimeRoom()` is now async and attempts backend ensure/recovery before websocket room connect.
+  - Added `fetchEnsureBackendPayload()` + `ensureBackendForHostClick()` to call backend ensure API and redirect to backend host URL when needed.
+- Hardened share URL logic in `scripts/game.js`:
+  - Added loopback/local-only host detection and shareable portal filtering.
+  - `getJoinPortalUrl()` now returns only network-shareable portal URLs (prevents exposing `127.*` / `localhost` as multiplayer join portal).
+  - Alternates list now filters non-shareable local-only URLs.
+- Simplified user-facing multiplayer copy:
+  - non-technical room-service guidance in `scripts/game.js` and `scripts/render.js`.
+  - join/fast-link placeholders now show "Available after room service starts".
+- Updated Playwright checks (`scripts/playwright_network_overhaul_checks.js`) for:
+  - static-mode localhost link suppression
+  - updated host-click failure copy expectations
+  - backend-mode check rejecting localhost/127 portal URLs.
+- Updated docs (`INSTRUCTIONS.md`) to reflect host-click automatic room-service setup language.
+- Logged verification in `TESTING_LOG.md` Session 17.
+
+## 2026-02-24 - Join retry lifecycle fix + major-overhaul closure
+
+- Continued and completed the active major-overhaul item in `TODOS.md`.
+- Implemented realtime connect-attempt lifecycle hardening in `scripts/game.js`:
+  - added `connectAttemptId` + pending socket/timer tracking on `realtime`.
+  - added `cancelRealtimeConnectAttempt()` + pending cleanup to prevent stale websocket callbacks from prior join attempts.
+  - updated `connectRealtimeSession()` with stale-attempt guards across timeout/open/message/error/close handlers.
+  - host/join actions now clear active `connecting` attempts before retrying.
+  - updated host connected copy to remove legacy “direct hotlink” phrase.
+- Updated guardrail automation in `scripts/playwright_join_guardrails.js`:
+  - replaced deprecated post-join `Connection:` visibility assumption with join-lobby readiness checks.
+  - added explicit wait helpers for invalid-code rejection and joined-lobby detection.
+  - aligned assertions with current join UX (join code input hidden after successful join).
+- Validation run (Playwright + static/backend split):
+  - backend mode: `scripts/playwright_network_overhaul_checks.js` PASS
+  - backend mode: `scripts/playwright_join_guardrails.js` PASS
+  - regression sweep: `scripts/playwright_button_sweep.js` PASS
+  - static mode without backend (`EXPECT_STATIC=1`) PASS
+  - static mode with backend autoswitch (`EXPECT_STATIC=1 EXPECT_AUTOSWITCH=1`) PASS
+- Updated tracking:
+  - appended Session 18 in `TESTING_LOG.md`.
+  - removed tested major-overhaul entry from `TODOS.md` (now no active items).
+
+Note:
+- Browser JS still cannot directly spawn `server.py`; host flow now aggressively auto-recovers via backend ensure/probe and origin autoswitch whenever a local backend is reachable.
+
+## 2026-03-09 - Host failure recovery path
+
+- Reproduced the reported host failure and isolated it to the no-backend case:
+  - `Host Game` succeeds when `server.py` is already running.
+  - `Host Game` fails only when the page is running without a local room-service/backend process.
+- Added a failing Playwright check first in `scripts/playwright_network_overhaul_checks.js` requiring a room-service starter affordance in the static no-backend error state.
+- Implemented the recovery path:
+  - `scripts/game.js`
+    - added starter URL helpers (`getRoomServiceStarterLinks()`) and host error-state gating (`shouldShowRoomServiceStarter()`).
+    - updated host-side missing-backend error copy to point to the starter flow.
+  - `scripts/render.js`
+    - added `Room Service Starter` card for failed host attempts on non-join clients.
+  - `styles/main.css`
+    - added support card layout styles.
+  - `server.py`
+    - added `--open-page` so launchers can bring up `host.html` automatically after backend startup.
+  - new files:
+    - `start_room_service.command`
+    - `start_room_service.bat`
+- Visual inspection:
+  - manually inspected the static host failure page with Playwright browser tools and confirmed the new recovery card and starter links render after the error.
+- Verification:
+  - static no-backend: `scripts/playwright_network_overhaul_checks.js` PASS
+  - starter launcher: `./start_room_service.command` starts backend successfully
+  - backend mode: `scripts/playwright_network_overhaul_checks.js` PASS
+  - join guardrails: PASS
+  - button sweep: PASS
+  - static autoswitch with backend available: PASS
+
+Note:
+- A browser page still cannot directly execute Python. The practical fix shipped here is a one-click local starter that opens the proper host page and removes the need to type `python3 server.py`.
+
+## 2026-06-03 - Return pass: bug review, fixes, and GitHub Pages + online-relay deploy
+- Resumed in Claude Code after the Codex build sessions. Reviewed code, fixed bugs (systematic-debugging), and prepared deployment.
+- Owner decision: enable multi-device online multiplayer by hosting the relay online (Render), since a static page can never spawn a local `server.py` (the long-running pain point). GitHub Pages serves the static client; the cloud relay handles rooms.
+- Bug fixes (see TESTING_LOG Session 20 for the verified list): solo voting race (bot votes were dropped), the same race in the night phase (mafia often never killed), a `botMakeDecisions` phase guard, win-condition ordering (Town win mislabeled as Mafia), realtime networking rework for static hosting, a post-open WS ack watchdog, cold-start warm-up, mixed-content filtering, room-cache TTL/cleanup (privacy), and the grey doctor save-chance text.
+- New: `scripts/config.js` (`productionRelayUrl`), `.nojekyll`, `render.yaml`, `Procfile`, `DEPLOYMENT.md`. `scripts/realtime_server.py` now reads `$PORT`, binds `0.0.0.0`, and serves `GET /health` 200. `requirements.txt` pinned `websockets>=13.0`.
+- Verified with Playwright: deterministic fix checks, full solo + pass-and-play flow, button sweep, realtime join guardrails, and a GitHub-Pages-scenario simulation via `localtest.me` with the relay URL injected (solo clean + no `/api` probing; host/join connect and sync over the configured relay).

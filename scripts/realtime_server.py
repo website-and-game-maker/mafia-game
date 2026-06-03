@@ -10,17 +10,23 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import re
+import secrets
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from typing import Any, Dict, Optional, Set
 
 try:
   import websockets
-  from websockets.server import WebSocketServerProtocol
 except ImportError as exc:
   raise SystemExit(
     "Missing dependency: websockets. Install with `pip install websockets`."
   ) from exc
+
+# Protocol class location changed across websockets versions.
+# Runtime behavior only needs send/recv methods, so keep typing flexible.
+WebSocketServerProtocol = Any
 
 
 LOGGER = logging.getLogger("mafia-realtime")
@@ -43,6 +49,20 @@ def sanitize_code(raw: Any) -> str:
   return (code[:8] or "ROOM")
 
 
+def random_code(length: int = 6) -> str:
+  alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def generate_unique_room_code(length: int = 6, max_attempts: int = 32) -> str:
+  for _ in range(max_attempts):
+    candidate = random_code(length)
+    room = ROOMS.get(candidate)
+    if room is None or len(room.clients) == 0:
+      return candidate
+  return f"{random_code(4)}{random_code(4)}"
+
+
 async def safe_send(ws: WebSocketServerProtocol, payload: Dict[str, Any]) -> bool:
   try:
     await ws.send(json.dumps(payload))
@@ -53,7 +73,7 @@ async def safe_send(ws: WebSocketServerProtocol, payload: Dict[str, Any]) -> boo
 
 async def broadcast(room: Room, payload: Dict[str, Any], exclude: Optional[WebSocketServerProtocol] = None) -> None:
   stale: Set[WebSocketServerProtocol] = set()
-  for ws in room.clients:
+  for ws in list(room.clients):
     if exclude is not None and ws == exclude:
       continue
     ok = await safe_send(ws, payload)
@@ -111,10 +131,26 @@ async def publish_presence(room: Room) -> None:
 
 
 async def handle_join(ws: WebSocketServerProtocol, data: Dict[str, Any]) -> None:
-  code = sanitize_code(data.get("code"))
+  requested_code = sanitize_code(data.get("code"))
   device_id = str(data.get("deviceId") or f"anon_{id(ws)}")
   requested_name = str(data.get("deviceName") or "").strip()
   requested_host = bool(data.get("isHost"))
+
+  code = requested_code
+  existing_room = ROOMS.get(requested_code)
+  if not requested_host and (existing_room is None or len(existing_room.clients) == 0):
+    await safe_send(ws, {
+      "type": "error",
+      "message": "Room code not found. Ask the host to start the room, then try again."
+    })
+    return
+  if requested_host and existing_room and len(existing_room.clients) > 0:
+    active_ids = {
+      (CLIENT_INFO.get(client) or {}).get("deviceId")
+      for client in existing_room.clients
+    }
+    if existing_room.host_device_id and existing_room.host_device_id != device_id and device_id not in active_ids:
+      code = generate_unique_room_code()
 
   room = ROOMS.setdefault(code, Room(code=code))
   room.clients.add(ws)
@@ -209,6 +245,42 @@ async def handle_request_state(ws: WebSocketServerProtocol) -> None:
     await safe_send(host_ws, {"type": "request_state", "code": room.code})
 
 
+async def handle_kick_device(ws: WebSocketServerProtocol, data: Dict[str, Any]) -> None:
+  info = CLIENT_INFO.get(ws)
+  if not info:
+    return
+  room = ROOMS.get(str(info.get("room")))
+  if not room:
+    return
+
+  host_device_id = str(info.get("deviceId") or "")
+  if host_device_id != room.host_device_id:
+    return
+
+  target_device_id = str(data.get("deviceId") or "").strip()
+  if not target_device_id or target_device_id == room.host_device_id:
+    return
+
+  target_ws: Optional[WebSocketServerProtocol] = None
+  for client in list(room.clients):
+    client_info = CLIENT_INFO.get(client) or {}
+    if str(client_info.get("deviceId") or "") == target_device_id:
+      target_ws = client
+      break
+
+  if not target_ws:
+    return
+
+  await safe_send(target_ws, {
+    "type": "kicked",
+    "message": "Host removed this device from the room."
+  })
+  try:
+    await target_ws.close(code=4001, reason="kicked_by_host")
+  except Exception:
+    await cleanup_client(target_ws)
+
+
 async def cleanup_client(ws: WebSocketServerProtocol) -> None:
   info = CLIENT_INFO.pop(ws, None)
   if not info:
@@ -258,6 +330,9 @@ async def handle_message(ws: WebSocketServerProtocol, raw: str) -> None:
   if message_type == "request_state":
     await handle_request_state(ws)
     return
+  if message_type == "kick_device":
+    await handle_kick_device(ws, data)
+    return
 
   await safe_send(ws, {"type": "error", "message": f"Unknown type: {message_type}"})
 
@@ -272,16 +347,43 @@ async def server_handler(ws: WebSocketServerProtocol) -> None:
     await cleanup_client(ws)
 
 
+async def health_check(connection: Any, request: Any) -> Any:
+  """Answer plain HTTP probes (cloud health checks / browser visits) with 200.
+
+  Returning None lets genuine WebSocket upgrade requests proceed to the handshake.
+  """
+  try:
+    upgrade = request.headers.get("Upgrade", "")
+  except Exception:
+    upgrade = ""
+  if str(upgrade or "").lower() == "websocket":
+    return None
+  try:
+    return connection.respond(HTTPStatus.OK, "Mafia realtime relay is running.\n")
+  except Exception:
+    return None
+
+
 async def main() -> None:
+  # Cloud hosts (Render, Railway, Fly, etc.) inject the bind port via $PORT.
+  default_port = int(os.environ.get("PORT") or 8765)
+  default_host = os.environ.get("HOST", "0.0.0.0")
   parser = argparse.ArgumentParser(description="Mafia realtime WebSocket relay server")
-  parser.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
-  parser.add_argument("--port", type=int, default=8765, help="Bind port (default: 8765)")
+  parser.add_argument("--host", default=default_host, help="Bind address (default: 0.0.0.0 or $HOST)")
+  parser.add_argument("--port", type=int, default=default_port, help="Bind port (default: 8765 or $PORT)")
   args = parser.parse_args()
 
   logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
   LOGGER.info("Starting realtime relay on ws://%s:%s", args.host, args.port)
 
-  async with websockets.serve(server_handler, args.host, args.port, ping_interval=20, ping_timeout=20):
+  async with websockets.serve(
+    server_handler,
+    args.host,
+    args.port,
+    process_request=health_check,
+    ping_interval=20,
+    ping_timeout=20,
+  ):
     await asyncio.Future()
 
 

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
+  <rect width="960" height="620" fill="#0b1020"/>
+  <text x="70" y="90" fill="#dbeafe" font-size="30" font-family="Georgia">Station Prometheus - Habitat Deck</text>
+
+  <rect x="90" y="160" width="270" height="190" rx="16" fill="#1e293b" stroke="#a5b4fc"/>
+  <text x="122" y="250" fill="#e2e8f0" font-size="24" font-family="Georgia">Sleep Pod Deck</text>
+
+  <rect x="390" y="190" width="250" height="160" rx="16" fill="#1e3a8a" stroke="#93c5fd"/>
+  <text x="432" y="275" fill="#dbeafe" font-size="24" font-family="Georgia">Pod Lookout</text>
+
+  <rect x="670" y="160" width="220" height="190" rx="16" fill="#312e81" stroke="#c4b5fd"/>
+  <text x="694" y="250" fill="#ddd6fe" font-size="24" font-family="Georgia">Observation Ring</text>
+
+  <path d="M362 250 L390 250" stroke="#e2e8f0" stroke-width="4"/>
+  <path d="M642 250 L670 250" stroke="#e2e8f0" stroke-width="4"/>
+</svg>

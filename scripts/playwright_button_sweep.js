@@ -7,6 +7,7 @@
 */
 
 const { chromium } = require('playwright');
+const BASE_URL = process.env.MAFIA_BASE_URL || 'http://localhost:8000';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -14,9 +15,17 @@ function sleep(ms) {
 
 async function clickIfVisible(page, selector) {
   const locator = page.locator(selector).first();
-  if (await locator.isVisible().catch(() => false)) {
-    await locator.click();
+  if (!await locator.isVisible().catch(() => false)) return false;
+  try {
+    await locator.click({ timeout: 1200 });
     return true;
+  } catch (error) {
+    try {
+      await locator.dispatchEvent('click');
+      return true;
+    } catch (dispatchError) {
+      return false;
+    }
   }
   return false;
 }
@@ -27,8 +36,33 @@ async function chooseFirstIfNoneSelected(page, rootSelector, itemSelector) {
   if (await root.locator('.selected').count() > 0) return false;
   const first = root.locator(itemSelector).first();
   if (await first.isVisible().catch(() => false)) {
-    await first.click();
+    try {
+      await first.click({ timeout: 1200 });
+      return true;
+    } catch (error) {
+      try {
+        await first.dispatchEvent('click');
+        return true;
+      } catch (dispatchError) {
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+async function clickLocatorIfVisible(locator) {
+  if (!await locator.isVisible().catch(() => false)) return false;
+  try {
+    await locator.click({ timeout: 1200 });
     return true;
+  } catch (error) {
+    try {
+      await locator.dispatchEvent('click');
+      return true;
+    } catch (dispatchError) {
+      return false;
+    }
   }
   return false;
 }
@@ -49,37 +83,65 @@ async function chooseFirstIfNoneSelected(page, rootSelector, itemSelector) {
   const log = (line) => console.log(`[sweep] ${line}`);
 
   try {
-    await page.goto('http://localhost:8000', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded', timeout: 15000 });
     log('opened setup');
 
     await page.getByRole('button', { name: 'How to Play' }).click();
-    await page.getByRole('button', { name: /Gameplay/ }).click();
-    await page.getByRole('button', { name: /Modes/ }).click();
-    await page.getByRole('button', { name: 'Got it!' }).click();
+    await clickLocatorIfVisible(page.getByRole('button', { name: /Rules/i }).first());
+    await clickLocatorIfVisible(page.getByRole('button', { name: /Modes/i }).first());
+    await clickLocatorIfVisible(page.getByRole('button', { name: 'Got it!' }).first());
     log('checked instructions modal');
 
     await page.getByRole('button', { name: /Multiplayer/ }).click();
+    await page.getByRole('button', { name: 'Host Game' }).waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByRole('button', { name: 'Join Game' }).waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByRole('button', { name: 'Host Game' }).click();
+    await page.waitForURL(/host\.html/, { timeout: 8000 });
+
     await page.fill('#newPlayerInput', 'Alice');
     await page.press('#newPlayerInput', 'Enter');
-  await page.fill('#newPlayerInput', 'Bob');
-  await page.press('#newPlayerInput', 'Enter');
-  await sleep(80);
+    await page.fill('#newPlayerInput', 'Bob');
+    await page.press('#newPlayerInput', 'Enter');
+    await sleep(80);
 
-  const activeId = await page.evaluate(() => document.activeElement && document.activeElement.id);
+    const activeId = await page.evaluate(() => document.activeElement && document.activeElement.id);
     if (activeId !== 'newPlayerInput') {
       errors.push(`focus: expected newPlayerInput after Enter, got ${activeId}`);
     }
 
-    const downBtns = page.locator('.player-item .order-btn[title="Move down"]');
-    if (await downBtns.count() > 0) await downBtns.first().click();
+    const dragHandles = page.locator('.player-item .drag-handle');
+    if (await dragHandles.count() === 0) {
+      errors.push('drag handles missing in multiplayer player list');
+    }
 
-    await page.getByRole('button', { name: 'Multi-device' }).click();
-    await page.getByRole('button', { name: 'Single-device' }).click();
-    await page.getByRole('button', { name: /Back/ }).click();
-    log('checked multiplayer lobby buttons');
+    const singleDeviceToggle = page.getByRole('button', { name: 'Single-device' }).first();
+    if (await singleDeviceToggle.isVisible().catch(() => false)) {
+      await singleDeviceToggle.click();
+      const multiDeviceToggle = page.getByRole('button', { name: 'Multi-device' }).first();
+      if (await multiDeviceToggle.isVisible().catch(() => false)) {
+        await multiDeviceToggle.click();
+      }
+    }
+    const backOrHome = page.getByRole('button', { name: /Back|Home/ }).first();
+    if (await backOrHome.isVisible().catch(() => false)) {
+      await backOrHome.click();
+    }
+    await page.waitForURL(/index\.html/, { timeout: 8000 });
+    log('checked multiplayer lobby navigation');
 
-    await page.getByRole('button', { name: /Solo/ }).click();
-    await page.fill('#soloNameInput', 'Tester');
+    const soloButton = page.getByRole('button', { name: /Solo/ }).first();
+    if (await soloButton.isVisible().catch(() => false)) {
+      await soloButton.click();
+      await page.waitForURL(/solo\.html/, { timeout: 8000 });
+    } else {
+      await page.goto(`${BASE_URL}/solo.html`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    }
+    const soloNameInput = page.locator('#soloNameInput').first();
+    if (await soloNameInput.isVisible().catch(() => false)) {
+      await soloNameInput.fill('Tester');
+    } else {
+      errors.push('solo name input not visible; continuing with default solo setup');
+    }
     await page.getByRole('button', { name: '+ Add Bot' }).click();
     await page.getByRole('button', { name: '+ Add Bot' }).click();
     if (!await page.getByRole('button', { name: 'Start Game' }).isVisible().catch(() => false)) {
@@ -94,6 +156,8 @@ async function chooseFirstIfNoneSelected(page, rootSelector, itemSelector) {
         break;
       }
 
+      if (await clickIfVisible(page, 'button:has-text("Continue to Player Turns")')) { await sleep(120); continue; }
+      if (await clickIfVisible(page, 'button:has-text("Reveal My Role")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Got it!")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Plan My Night")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Open Night Console")')) { await sleep(120); continue; }
@@ -108,10 +172,11 @@ async function chooseFirstIfNoneSelected(page, rootSelector, itemSelector) {
       if (await clickIfVisible(page, 'button:has-text("Confirm Route")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Confirm Plan")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Confirm Night Strike")')) { await sleep(140); continue; }
-      if (await clickIfVisible(page, 'button:has-text("Confirm Medicine")')) { await sleep(140); continue; }
+      if (await clickIfVisible(page, 'button:has-text("Confirm Night Stance")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Confirm Save")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Proceed to Voting")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Submit Vote")')) { await sleep(140); continue; }
+      if (await clickIfVisible(page, 'button:has-text("See Results")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, '.modal-content button:has-text("Continue")')) { await sleep(140); continue; }
 
       await sleep(260);

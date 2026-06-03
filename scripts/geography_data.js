@@ -7,6 +7,46 @@ window.GEOGRAPHY_DATA = {
     name: 'Blackwood Estate Graph',
     bedroomHubNode: 'bedroom_wing',
     detectiveSnoopNode: 'library_stacks',
+    floorplan: {
+      floors: [
+        {
+          id: 'upper_wing',
+          name: 'Upper Wing',
+          image: 'assets/floorplans/mansion/upper_wing.svg',
+          rooms: [
+            { nodeId: 'bedroom_wing', note: 'Bedrooms and private doors. Gray note: balcony overlooks grounds.' },
+            { nodeId: 'hallway', note: 'Main interior pass-through between upper rooms.' },
+            { nodeId: 'library_stacks', note: 'Investigative sightlines and quiet observation lanes.' }
+          ]
+        },
+        {
+          id: 'ground_floor',
+          name: 'Ground Floor',
+          image: 'assets/floorplans/mansion/ground_floor.svg',
+          rooms: [
+            { nodeId: 'foyer', note: 'Central meeting traffic.' },
+            { nodeId: 'parlor', note: 'Conversation-heavy social room.' },
+            { nodeId: 'kitchen', note: 'Service route toward cellar stairs.' },
+            { nodeId: 'wine_cellar', note: 'Isolated basement zone; high threat exposure.' }
+          ]
+        },
+        {
+          id: 'grounds',
+          name: 'Estate Grounds',
+          image: 'assets/floorplans/mansion/estate_grounds.svg',
+          rooms: [
+            { nodeId: 'porch_veranda', note: 'Balcony and porch watch angle toward the garden.' },
+            { nodeId: 'garden_path', note: 'Outdoor route connecting porch and front doors.' }
+          ]
+        }
+      ],
+      connectionNotes: [
+        { from: 'bedroom_wing', to: 'porch_veranda', note: 'Balcony doors create direct upper-to-ground visibility.' },
+        { from: 'hallway', to: 'foyer', note: 'Narrow staircase bottleneck.' },
+        { from: 'kitchen', to: 'wine_cellar', note: 'Cellar stairs; sound carries downward.' },
+        { from: 'foyer', to: 'garden_path', note: 'Front doors open to grounds route.' }
+      ]
+    },
     nodes: [
       { id: 'bedroom_wing', name: 'Bedroom Wing', type: 'private_cluster', tags: ['sleep', 'rooms'] },
       { id: 'porch_veranda', name: 'Veranda Porch', type: 'vantage', tags: ['porch', 'outdoor'] },
@@ -34,6 +74,45 @@ window.GEOGRAPHY_DATA = {
     name: 'Midnight Express Graph',
     bedroomHubNode: 'cabin_row',
     detectiveSnoopNode: 'observation_corridor',
+    floorplan: {
+      floors: [
+        {
+          id: 'sleeper_section',
+          name: 'Sleeper Section',
+          image: 'assets/floorplans/train/sleeper_cars.svg',
+          rooms: [
+            { nodeId: 'cabin_row', note: 'Private cabins and sleeper routes.' },
+            { nodeId: 'observation_corridor', note: 'Long sightline for snoop actions.' }
+          ]
+        },
+        {
+          id: 'service_section',
+          name: 'Service Cars',
+          image: 'assets/floorplans/train/service_cars.svg',
+          rooms: [
+            { nodeId: 'dining_car', note: 'High social overlap at meal traffic peaks.' },
+            { nodeId: 'smoking_lounge', note: 'Conversation-heavy and noisy by default.' },
+            { nodeId: 'service_car', note: 'Utility chokepoint toward rear cars.' },
+            { nodeId: 'baggage_hold', note: 'Isolated cargo lane with limited exits.' }
+          ]
+        },
+        {
+          id: 'exterior_route',
+          name: 'Exterior Route',
+          image: 'assets/floorplans/train/exterior_route.svg',
+          rooms: [
+            { nodeId: 'cabin_porch', note: 'Open-air platform with strong sight but poor hearing.' },
+            { nodeId: 'engine_walkway', note: 'Narrow maintenance catwalk near engine noise.' }
+          ]
+        }
+      ],
+      connectionNotes: [
+        { from: 'observation_corridor', to: 'dining_car', note: 'Car-link hinge, moderate bottleneck.' },
+        { from: 'smoking_lounge', to: 'service_car', note: 'Service hatch transition.' },
+        { from: 'service_car', to: 'engine_walkway', note: 'Maintenance access with exterior exposure.' },
+        { from: 'cabin_row', to: 'cabin_porch', note: 'Platform door opens to wind-heavy route.' }
+      ]
+    },
     nodes: [
       { id: 'cabin_row', name: 'Cabin Row', type: 'private_cluster', tags: ['sleep', 'rooms'] },
       { id: 'cabin_porch', name: 'Car End Platform', type: 'vantage', tags: ['porch'] },
@@ -58,6 +137,46 @@ window.GEOGRAPHY_DATA = {
     name: 'Coral Bay Graph',
     bedroomHubNode: 'bungalow_row',
     detectiveSnoopNode: 'dorm_overlook',
+    floorplan: {
+      floors: [
+        {
+          id: 'resort_core',
+          name: 'Resort Core',
+          image: 'assets/floorplans/island/resort_core.svg',
+          rooms: [
+            { nodeId: 'bungalow_row', note: 'Guest sleeping bungalows and room corridors.' },
+            { nodeId: 'main_lodge', note: 'Central social building with broad exposure.' },
+            { nodeId: 'clinic', note: 'Medical utility lane with hearing-heavy routes.' }
+          ]
+        },
+        {
+          id: 'shoreline',
+          name: 'Shoreline',
+          image: 'assets/floorplans/island/shoreline.svg',
+          rooms: [
+            { nodeId: 'bungalow_porch', note: 'Raised porch vantage over beach routes.' },
+            { nodeId: 'beach_path', note: 'Open sand route connecting lodge and dock.' },
+            { nodeId: 'boat_dock', note: 'Long sightline lane toward water access.' }
+          ]
+        },
+        {
+          id: 'wilds',
+          name: 'Wilds',
+          image: 'assets/floorplans/island/wilds.svg',
+          rooms: [
+            { nodeId: 'dorm_overlook', note: 'Snoop-friendly overlook near inner paths.' },
+            { nodeId: 'jungle_edge', note: 'Cover-heavy edge route with low certainty intel.' },
+            { nodeId: 'lighthouse', note: 'Isolated high-risk ridge endpoint.' }
+          ]
+        }
+      ],
+      connectionNotes: [
+        { from: 'main_lodge', to: 'beach_path', note: 'Open steps to shoreline, easy to witness.' },
+        { from: 'beach_path', to: 'jungle_edge', note: 'Sand-to-brush transition, mixed hearing.' },
+        { from: 'jungle_edge', to: 'lighthouse', note: 'Ridge trail with long travel distance.' },
+        { from: 'main_lodge', to: 'clinic', note: 'Service hallway between core buildings.' }
+      ]
+    },
     nodes: [
       { id: 'bungalow_row', name: 'Bungalow Row', type: 'private_cluster', tags: ['sleep', 'rooms'] },
       { id: 'bungalow_porch', name: 'Porches Over Beach', type: 'vantage', tags: ['porch', 'beach'] },
@@ -85,6 +204,46 @@ window.GEOGRAPHY_DATA = {
     name: 'Prometheus Station Graph',
     bedroomHubNode: 'sleep_pod_deck',
     detectiveSnoopNode: 'surveillance_bay',
+    floorplan: {
+      floors: [
+        {
+          id: 'habitat_deck',
+          name: 'Habitat Deck',
+          image: 'assets/floorplans/space/habitat_deck.svg',
+          rooms: [
+            { nodeId: 'sleep_pod_deck', note: 'Crew sleep pods and private berth corridors.' },
+            { nodeId: 'pod_lookout', note: 'Lookout lane with elevated angle over deck.' },
+            { nodeId: 'observation_ring', note: 'Public ring corridor with broad visibility.' }
+          ]
+        },
+        {
+          id: 'operations_deck',
+          name: 'Operations Deck',
+          image: 'assets/floorplans/space/ops_deck.svg',
+          rooms: [
+            { nodeId: 'central_hub', note: 'Main circulation node to most station sectors.' },
+            { nodeId: 'surveillance_bay', note: 'Investigative console station and logs.' },
+            { nodeId: 'medbay', note: 'Treatment wing with medium hearing carry.' },
+            { nodeId: 'cargo_hold', note: 'Freight logistics area with heavy blind spots.' }
+          ]
+        },
+        {
+          id: 'engineering',
+          name: 'Engineering',
+          image: 'assets/floorplans/space/engineering.svg',
+          rooms: [
+            { nodeId: 'reactor_tunnel', note: 'Extreme heat tunnel; highest station disturbance risk.' },
+            { nodeId: 'airlock', note: 'Hull access corridor tied to outer ring routes.' }
+          ]
+        }
+      ],
+      connectionNotes: [
+        { from: 'central_hub', to: 'cargo_hold', note: 'Freight lift path toward logistics bay.' },
+        { from: 'cargo_hold', to: 'reactor_tunnel', note: 'Maintenance trunk enters reactor sector.' },
+        { from: 'observation_ring', to: 'airlock', note: 'Outer lock corridor with partial sightline.' },
+        { from: 'surveillance_bay', to: 'reactor_tunnel', note: 'Service route with weak hearing certainty.' }
+      ]
+    },
     nodes: [
       { id: 'sleep_pod_deck', name: 'Sleep Pod Deck', type: 'private_cluster', tags: ['sleep', 'rooms'] },
       { id: 'pod_lookout', name: 'Pod Lookout', type: 'vantage', tags: ['porch'] },
