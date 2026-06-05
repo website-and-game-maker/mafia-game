@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -74,36 +75,35 @@ def main() -> None:
         raise SystemExit(f"[deploy] Missing relay source: {RELAY_FILE}")
     code = RELAY_FILE.read_text(encoding="utf-8")
 
-    try:
-        existing = find_existing_val(token)
-    except SystemExit as e:
-        # A lookup hiccup must not block a first-time deploy — just create fresh.
-        print(f"[deploy] (lookup skipped: {e})")
-        existing = None
-    if existing:
-        val_id = existing["id"]
-        print(f"[deploy] Reusing existing val '{VAL_NAME}' ({val_id})")
-        # Update main.tsx in place (create if missing).
-        try:
-            file_resp = req(
-                "PUT", f"/v2/vals/{val_id}/files?path=main.tsx",
-                token, {"content": code, "type": "http"},
-            )
-        except SystemExit:
-            file_resp = req(
-                "POST", f"/v2/vals/{val_id}/files",
-                token, {"path": "main.tsx", "content": code, "type": "http"},
-            )
+    override_id = os.environ.get("MAFIA_RELAY_VAL_ID", "").strip()
+    if override_id:
+        val_id = override_id
+        print(f"[deploy] Using val id from MAFIA_RELAY_VAL_ID ({val_id})")
     else:
-        print(f"[deploy] Creating val '{VAL_NAME}'...")
-        val = req("POST", "/v2/vals", token, {"name": VAL_NAME, "privacy": "public"})
-        val_id = val.get("id")
-        if not val_id:
-            raise SystemExit(f"[deploy] Unexpected create response (no id): {val}")
-        file_resp = req(
-            "POST", f"/v2/vals/{val_id}/files",
-            token, {"path": "main.tsx", "content": code, "type": "http"},
-        )
+        try:
+            existing = find_existing_val(token)
+        except SystemExit as e:
+            # A lookup hiccup must not block a first-time deploy — just create fresh.
+            print(f"[deploy] (lookup skipped: {e})")
+            existing = None
+        if existing:
+            val_id = existing.get("id")
+            print(f"[deploy] Reusing existing val '{VAL_NAME}' ({val_id})")
+        else:
+            print(f"[deploy] Creating val '{VAL_NAME}'...")
+            val = req("POST", "/v2/vals", token, {"name": VAL_NAME, "privacy": "public"})
+            val_id = val.get("id")
+            if not val_id:
+                raise SystemExit(f"[deploy] Unexpected create response (no id): {val}")
+
+    # Upload main.tsx. The Val Town files API takes `path` as a query-string
+    # parameter; content + type go in the body. PUT updates an existing file,
+    # POST creates a new one.
+    qs = "path=" + urllib.parse.quote("main.tsx")
+    try:
+        file_resp = req("PUT", f"/v2/vals/{val_id}/files?{qs}", token, {"content": code, "type": "http"})
+    except SystemExit:
+        file_resp = req("POST", f"/v2/vals/{val_id}/files?{qs}", token, {"content": code, "type": "http"})
 
     links = (file_resp or {}).get("links") or {}
     endpoint = links.get("endpoint", "")

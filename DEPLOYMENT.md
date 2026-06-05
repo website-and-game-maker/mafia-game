@@ -58,3 +58,20 @@ python3 server.py            # http://localhost:8000  + relay on :8765
 ```
 
 On `localhost`/LAN the client auto-detects this backend (via `/api/network-info`), so you don't need to set `productionRelayUrl` for local testing. Open the printed LAN URL on other devices on the same network to play multi-device without any cloud host.
+
+---
+
+## Update: online relay host = Deno Deploy (native WebSockets)
+
+Val Town turned out not to support server-side WebSockets (HTTP vals can't accept
+WS upgrades — confirmed live: the upgrade returns 200 instead of 101). The relay
+therefore runs on **Deno Deploy**, which supports `Deno.upgradeWebSocket` natively,
+so the WebSocket client + relay are reused unchanged.
+
+- Relay entry: `deno-deploy/relay.ts` (serves the handler in `valtown/mafia-relay.ts`).
+- Deploy: `DENO_DEPLOY_TOKEN=<token> bash deno-deploy/deploy.sh`
+  (token from https://dash.deno.com/account#access-tokens).
+- Then set `productionRelayUrl: 'wss://<project>.deno.dev'` in `scripts/config.js` and push.
+
+`valtown/` is kept only as the source of the shared relay handler; Val Town itself
+is not used to host (it can't do WebSockets).
