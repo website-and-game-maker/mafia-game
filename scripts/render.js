@@ -82,6 +82,44 @@ function restoreFocusedInputState(snapshot) {
   }
 }
 
+// Chat text comes from other players' devices: always escape it.
+function escapeChatText(raw) {
+  return String(raw ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Lobby chat: visible to every connected device while waiting in the room.
+function renderLobbyChatPanel() {
+  if (state.multiplayerMode !== 'realtime' || !state.network.connected) return '';
+  const lobbyMessages = state.chatMessages.filter(message => message.lobby);
+  return `
+    <div class="card">
+      <div class="section-label">💬 Lobby Chat</div>
+      <div class="chat-messages" style="max-height:200px">
+        ${lobbyMessages.length === 0
+          ? '<div style="color:var(--text-secondary);font-size:0.9rem">Say hi while everyone joins…</div>'
+          : lobbyMessages.map(message => `
+            <div class="chat-message">
+              <span class="chat-author">${escapeChatText(message.senderName)}:</span> ${escapeChatText(message.text)}
+            </div>
+          `).join('')}
+      </div>
+      <div class="chat-compose">
+        <input id="lobbyChatInput" class="input" type="text" value="${escapeChatText(state.chatDraft)}"
+               oninput="setChatDraft(this.value)"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();sendLobbyMessage(this.value);}"
+               maxlength="240"
+               placeholder="Message everyone in the room"/>
+        <button class="btn btn-secondary btn-small" onclick="sendLobbyMessage(document.getElementById('lobbyChatInput')?.value)">Send</button>
+      </div>
+      <div class="footnote" style="margin-top:6px">Messages are visible to every device in this room. Chat clears when the game starts.</div>
+    </div>
+  `;
+}
+
 function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) {
   const aliveHumans = getAliveDiscussionHumans();
   const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
@@ -97,7 +135,7 @@ function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) 
         <div class="chat-senders">
           ${aliveHumans.map(player => `
             <button class="chat-sender-btn ${state.chatSenderId === player.id ? 'active' : ''}" onclick="setChatSender('${player.id}')">
-              ${player.name}
+              ${escapeChatText(player.name)}
             </button>
           `).join('')}
         </div>
@@ -105,7 +143,7 @@ function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) 
       <div class="chat-messages">
         ${dayMessages.length === 0 ? '<div style="color:var(--text-secondary);font-size:0.9rem">No messages yet this round.</div>' : dayMessages.map(message => `
           <div class="chat-message ${message.senderId?.startsWith('bot') ? 'chat-message-bot' : ''}">
-            <span class="chat-author">${message.senderName}:</span> ${message.text}
+            <span class="chat-author">${escapeChatText(message.senderName)}:</span> ${escapeChatText(message.text)}
           </div>
         `).join('')}
       </div>
@@ -556,6 +594,8 @@ function renderMultiLobby() {
         </div>
         ${state.nameError ? `<div class="error-msg">${state.nameError}</div>` : ''}
       </div>
+
+      ${isRealtime ? renderLobbyChatPanel() : ''}
 
       ${isRealtime ? `
         <div class="card">

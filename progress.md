@@ -568,3 +568,9 @@ Note:
 ### 2026-06-10 addendum
 - GitHub account renamed (PyCoder42 → website-and-game-maker): live site moved to https://website-and-game-maker.github.io/mafia-game/ (old URL 404s). Docs + git remote updated. Live verification re-run on the new URL: 19/19 page+solo checks and 7/7 online-multiplayer checks green.
 - Also removed an accidentally-committed venv symlink (had broken one Pages build).
+
+## 2026-06-10 - Lobby chat
+- Added a Lobby Chat card to the multi-device lobby (host + join views), visible once connected: device-attributed messages (forwarded joiner messages carry the sender's device name), synced through the existing host-authoritative snapshot flow, 120-message cap, clears when the game starts.
+- Hardened chat rendering: new escapeChatText() applied to BOTH lobby and in-game chat (message text + sender names) — HTML in messages now renders as text.
+- Validation: 12/12 focused checks (both directions, attribution, escaping, clear-on-start, zero pageerrors), button sweep PASS, 10-run matrix 10/10.
+- Env note: client relay candidates expect port 8765 — local worktree backends must use --relay-port 8765 or realtime tests fail to join.

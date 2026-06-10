@@ -5107,6 +5107,33 @@ window.setChatSender = (playerId) => {
   render();
 };
 
+// Lobby chat: lets connected devices talk while waiting for the game to start.
+// Senders are devices (players may not be added yet). On forwarded actions the
+// client's device name rides along as the second arg so the host attributes
+// the message correctly.
+window.sendLobbyMessage = (textOverride = null, senderNameOverride = null) => {
+  if (state.screen !== 'multi_lobby' || !isRealtimeMode() || !state.network.connected) return;
+  const source = typeof textOverride === 'string' ? textOverride : state.chatDraft;
+  const text = source.trim().slice(0, 240);
+  if (!text) return;
+  const senderName = String(senderNameOverride || state.network.deviceName || 'Device').slice(0, 32);
+
+  state.chatMessages.push({
+    id: `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    day: 0,
+    lobby: true,
+    senderId: `device_${senderName}`,
+    senderName,
+    text,
+    at: new Date().toISOString()
+  });
+  if (state.chatMessages.length > 120) {
+    state.chatMessages = state.chatMessages.slice(-120);
+  }
+  state.chatDraft = '';
+  render();
+};
+
 window.sendDiscussionMessage = (textOverride = null) => {
   if (state.gamePhase !== 'discussion') return;
   const source = typeof textOverride === 'string' ? textOverride : state.chatDraft;
@@ -5233,6 +5260,7 @@ const REALTIME_FORWARD_ACTIONS = new Set([
   'setChatSender',
   'setChatDraft',
   'sendDiscussionMessage',
+  'sendLobbyMessage',
   'selectVote',
   'confirmVote'
 ]);
@@ -5248,6 +5276,10 @@ const REALTIME_ARG_MAPPERS = {
   sendDiscussionMessage: (args) => {
     if (typeof args[0] === 'string') return args;
     return [state.chatDraft];
+  },
+  sendLobbyMessage: (args) => {
+    const text = typeof args[0] === 'string' ? args[0] : state.chatDraft;
+    return [text, state.network.deviceName];
   }
 };
 

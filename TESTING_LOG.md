@@ -698,3 +698,10 @@ Found-and-fixed during verification: pod-snoop missed killer movement when the v
 - GitHub account renamed PyCoder42 → website-and-game-maker; old Pages URL 404s. New live URL: **https://website-and-game-maker.github.io/mafia-game/** (docs + git remote updated; Deno relay URL unchanged and healthy).
 - Live (new URL): all 4 pages clean (no pageerrors, no /api probing); solo full game to winner; online multiplayer host+join through the Deno relay with named players on both devices — game start synced, joiner sees all participants (7/7 checks).
 - Note: bots-only multiplayer start is correctly blocked by design ("Need at least 1 human") — verified not a regression.
+
+### Session 23 addendum 2: Lobby chat (2026-06-10)
+| Test | Status | Notes |
+|------|--------|-------|
+| Lobby chat focused suite | PASS 12/12 | host↔joiner sync, device attribution, HTML escaped, clears at game start |
+| Button sweep | PASS | |
+| 10-run matrix | PASS 10/10 | incl. 3 realtime runs |
