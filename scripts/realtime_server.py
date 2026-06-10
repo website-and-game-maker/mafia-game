@@ -32,12 +32,16 @@ WebSocketServerProtocol = Any
 LOGGER = logging.getLogger("mafia-realtime")
 
 
+HOST_GRACE_SECONDS = 75
+
+
 @dataclass
 class Room:
   code: str
   clients: Set[WebSocketServerProtocol] = field(default_factory=set)
   host_device_id: Optional[str] = None
   latest_state: Optional[Dict[str, Any]] = None
+  host_lost_at: Optional[float] = None
 
 
 ROOMS: Dict[str, Room] = {}
@@ -169,10 +173,19 @@ async def handle_join(ws: WebSocketServerProtocol, data: Dict[str, Any]) -> None
     (CLIENT_INFO.get(client) or {}).get("deviceId")
     for client in room.clients
   }
-  if room.host_device_id not in active_ids:
+  import time as _time
+  if room.host_device_id is None:
     room.host_device_id = device_id
-  elif room.host_device_id is None and requested_host:
-    room.host_device_id = device_id
+  elif device_id == room.host_device_id:
+    # The host (e.g. after an accidental refresh) reclaims their seat.
+    room.host_lost_at = None
+  elif room.host_device_id not in active_ids:
+    # Host is absent: hold the seat through a grace window so a returning
+    # host isn't usurped by whoever happens to join next.
+    grace_over = room.host_lost_at is not None and (_time.time() - room.host_lost_at) > HOST_GRACE_SECONDS
+    if grace_over:
+      room.host_device_id = device_id
+      room.host_lost_at = None
 
   await safe_send(ws, {
     "type": "joined_room",
@@ -298,14 +311,35 @@ async def cleanup_client(ws: WebSocketServerProtocol) -> None:
     return
 
   if info.get("deviceId") == room.host_device_id:
-    replacement = next(iter(room.clients))
-    replacement_info = CLIENT_INFO.get(replacement) or {}
-    room.host_device_id = str(replacement_info.get("deviceId") or "")
-    await broadcast(room, {
-      "type": "host_changed",
-      "code": room.code,
-      "hostDeviceId": room.host_device_id
-    })
+    # Don't promote immediately: give the host a grace window to reconnect
+    # (accidental refresh / tab close). Promote only if they stay gone.
+    import time as _time
+    room.host_lost_at = _time.time()
+    code_snapshot = room.code
+
+    async def promote_after_grace() -> None:
+      await asyncio.sleep(HOST_GRACE_SECONDS)
+      current = ROOMS.get(code_snapshot)
+      if current is None or len(current.clients) == 0:
+        return
+      active = {
+        (CLIENT_INFO.get(client) or {}).get("deviceId")
+        for client in current.clients
+      }
+      if current.host_device_id in active:
+        return  # host returned
+      replacement = next(iter(current.clients))
+      replacement_info = CLIENT_INFO.get(replacement) or {}
+      current.host_device_id = str(replacement_info.get("deviceId") or "")
+      current.host_lost_at = None
+      await broadcast(current, {
+        "type": "host_changed",
+        "code": current.code,
+        "hostDeviceId": current.host_device_id
+      })
+      await publish_presence(current)
+
+    asyncio.create_task(promote_after_grace())
 
   await publish_presence(room)
 

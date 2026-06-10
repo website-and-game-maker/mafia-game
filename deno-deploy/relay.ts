@@ -20,7 +20,10 @@ interface Room {
   clients: Set<WebSocket>;
   hostDeviceId: string | null;
   latestState: unknown | null;
+  hostLostAt: number | null;
 }
+
+const HOST_GRACE_MS = 75 * 1000;
 
 const ROOMS = new Map<string, Room>();
 const CLIENT_INFO = new Map<WebSocket, ClientInfo>();
@@ -145,7 +148,7 @@ function handleJoin(ws: WebSocket, data: Record<string, unknown>): void {
 
   let room = ROOMS.get(code);
   if (!room) {
-    room = { code, clients: new Set(), hostDeviceId: null, latestState: null };
+    room = { code, clients: new Set(), hostDeviceId: null, latestState: null, hostLostAt: null };
     ROOMS.set(code, room);
   }
   room.clients.add(ws);
@@ -155,10 +158,19 @@ function handleJoin(ws: WebSocket, data: Record<string, unknown>): void {
   CLIENT_INFO.set(ws, { room: code, deviceId, deviceName });
 
   const activeIds = new Set([...room.clients].map((c) => CLIENT_INFO.get(c)?.deviceId));
-  if (!room.hostDeviceId || !activeIds.has(room.hostDeviceId)) {
+  if (!room.hostDeviceId) {
     room.hostDeviceId = deviceId;
-  } else if (room.hostDeviceId === null && requestedHost) {
-    room.hostDeviceId = deviceId;
+  } else if (deviceId === room.hostDeviceId) {
+    // The host (e.g. after an accidental refresh) reclaims their seat.
+    room.hostLostAt = null;
+  } else if (!activeIds.has(room.hostDeviceId)) {
+    // Host absent: hold the seat through a grace window so a returning host
+    // isn't usurped by whoever joins next; hand it over only after the grace.
+    const graceOver = room.hostLostAt !== null && (Date.now() - room.hostLostAt) > HOST_GRACE_MS;
+    if (graceOver) {
+      room.hostDeviceId = deviceId;
+      room.hostLostAt = null;
+    }
   }
 
   safeSend(ws, { type: "joined_room", code, hostDeviceId: room.hostDeviceId });
@@ -250,9 +262,21 @@ function cleanupClient(ws: WebSocket): void {
   }
 
   if (info.deviceId === room.hostDeviceId) {
-    const replacement = room.clients.values().next().value as WebSocket;
-    room.hostDeviceId = String(CLIENT_INFO.get(replacement)?.deviceId ?? "");
-    broadcast(room, { type: "host_changed", code: room.code, hostDeviceId: room.hostDeviceId });
+    // Grace window before promotion: an accidental refresh should let the
+    // host come back and keep hosting.
+    room.hostLostAt = Date.now();
+    const codeSnapshot = room.code;
+    setTimeout(() => {
+      const current = ROOMS.get(codeSnapshot);
+      if (!current || current.clients.size === 0) return;
+      const active = new Set([...current.clients].map((c) => CLIENT_INFO.get(c)?.deviceId));
+      if (current.hostDeviceId && active.has(current.hostDeviceId)) return; // host returned
+      const replacement = current.clients.values().next().value as WebSocket;
+      current.hostDeviceId = String(CLIENT_INFO.get(replacement)?.deviceId ?? "");
+      current.hostLostAt = null;
+      broadcast(current, { type: "host_changed", code: current.code, hostDeviceId: current.hostDeviceId });
+      publishPresence(current);
+    }, HOST_GRACE_MS);
   }
   publishPresence(room);
 }

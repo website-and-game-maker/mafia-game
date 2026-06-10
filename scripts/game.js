@@ -307,6 +307,7 @@ const realtime = {
 // Cached room snapshots expire so an old tab cannot restore an ancient game,
 // and so secret role data does not linger in localStorage forever.
 const ROOM_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const SOLO_CACHE_KEY = 'mafia_solo_cache';
 const BACKEND_DEFAULT_PORT = 8000;
 const BACKEND_PROBE_TIMEOUT_MS = 1200;
 let backendAutoSwitchInFlight = false;
@@ -477,7 +478,7 @@ function buildMafiaActions(node, locationExposure) {
     return [
       buildAction('erase_traces', 'Erase traces', 'Clean key clues before sunrise.', low, { mafiaOnly: true, kind: 'hide' }),
       buildAction('false_lead', 'Plant false lead', 'Leave believable but misleading intel.', med, { mafiaOnly: true, kind: 'linger' }),
-      buildAction('monitor_snoopers', 'Monitor snoopers', 'Track who is gathering information tonight.', high, { mafiaOnly: true, kind: 'snoop' })
+      buildAction('monitor_snoopers', 'Counter-surveillance', 'Spot townsfolk watching your team\'s rooms tonight.', high, { mafiaOnly: true, kind: 'snoop' })
     ];
   }
 
@@ -737,6 +738,7 @@ const state = {
   roleConfig: { mafia: 1, doctor: 1, detective: 0, villager: 0 },
   selectedStory: STORY_PRESETS[0],
   gamePhase: 'reveal',
+  gameEpoch: 0,
   dayNumber: 1,
   narrative: '',
   currentPlayerIndex: 0,
@@ -788,6 +790,13 @@ const state = {
   showSettings: false,
   showMap: false,
   tutorialStep: null,
+  lastNightSummary: null,
+  lastVoteSummary: null,
+  chatDrawerOpen: false,
+  chatSeenCount: 0,
+  departedDevices: {},
+  hostLostAt: null,
+  soloResumeAvailable: false,
   selectedMapFloor: null,
   showBigRoomCode: false,
   autoJoinPending: Boolean(INITIAL_JOIN_CODE || (ROLE_PARAM === 'join' && INITIAL_ROOM_CODE)),
@@ -981,12 +990,10 @@ function getPlanIntelChance(player, plan) {
 }
 
 function getNightActors(alivePlayers = getAlivePlayers()) {
-  const livingHumans = alivePlayers.filter(player => player.alive && !player.isBot);
-  const mafia = livingHumans.filter(player => player.role === 'mafia');
-  const detectives = livingHumans.filter(player => player.role === 'detective');
-  const doctors = livingHumans.filter(player => player.role === 'doctor');
-  const villagers = livingHumans.filter(player => player.role === 'villager');
-  return [...mafia, ...detectives, ...villagers, ...doctors];
+  // SEATING order only. Grouping turns by role (mafia first, doctors last,
+  // etc.) would let pass-and-play players infer roles from who goes when —
+  // turn order must carry zero information.
+  return alivePlayers.filter(player => player.alive && !player.isBot);
 }
 
 function getKillMethodById(methodId) {
@@ -1010,7 +1017,14 @@ function getNextAliveHumanIndex(startIndex) {
 }
 
 function withBotDelay(callback, delay = state.botDelayMs) {
-  setTimeout(callback, delay);
+  // Guard against timers crossing game boundaries: a callback scheduled in one
+  // game (e.g. processMorning after a night) must never fire into the next
+  // game's reveal. The epoch increments on every game start/reset.
+  const epoch = state.gameEpoch;
+  setTimeout(() => {
+    if (state.gameEpoch !== epoch) return;
+    callback();
+  }, delay);
 }
 
 function randomChoice(items) {
@@ -1038,7 +1052,7 @@ function getNarratorPhasePrompt(phase = state.gamePhase) {
     day: 'Narrator turn: warn players that exposure brings both information and danger.',
     night: 'Narrator turn: describe the night atmosphere without revealing secret role actions.',
     announcement: 'Narrator turn: deliver the public night outcome before discussion begins.',
-    discussion: 'Narrator turn: open discussion and ask players to compare timelines.',
+    discussion: `Narrator turn: open discussion and ask players to compare timelines.${(() => { const e = describeNightEcho(); return e ? ` Suggested flavor: "${e}"` : ''; })()}`,
     vote: 'Narrator turn: call for calm voting and evidence-based choices.',
     vote_announcement: 'Narrator turn: narrate the vote result and consequences.',
     gameover: 'Narrator turn: close the story and summarize the final chain of events.'
@@ -2076,6 +2090,10 @@ function applyRealtimeStateSnapshot(snapshot) {
     const keepSettings = state.showSettings;
     // Tutorial progress is per-device UI state, never synced from the host.
     const keepTutorialStep = state.tutorialStep;
+    const keepChatDrawer = state.chatDrawerOpen;
+    const keepChatSeen = state.chatSeenCount;
+    const keepDeparted = state.departedDevices;
+    const keepHostLostAt = state.hostLostAt;
     const incomingDeviceOrder = Array.isArray(snapshot._networkDeviceOrder) ? [...snapshot._networkDeviceOrder] : null;
 
     Object.keys(snapshot).forEach(key => {
@@ -2095,6 +2113,10 @@ function applyRealtimeStateSnapshot(snapshot) {
     state.showInstructions = keepInstructions;
     state.showSettings = keepSettings;
     state.tutorialStep = keepTutorialStep;
+    state.chatDrawerOpen = keepChatDrawer;
+    state.chatSeenCount = keepChatSeen;
+    state.departedDevices = keepDeparted;
+    state.hostLostAt = keepHostLostAt;
   } finally {
     realtime.applyingRemoteState = false;
   }
@@ -2109,15 +2131,125 @@ function reconcileDeviceOrder(devices) {
 }
 
 function updateRealtimePresence(devices, hostDeviceId = null) {
+  const previousDevices = state.network.devices || [];
   state.network.devices = Array.isArray(devices) ? devices : [];
   maybeAutoAssignDeviceName(state.network.devices);
   const selfDevice = state.network.devices.find(device => device.deviceId === state.network.deviceId);
   if (selfDevice?.deviceName) state.network.deviceName = selfDevice.deviceName;
   reconcileDeviceOrder(state.network.devices);
+  const wasHost = state.network.isHost;
   state.network.hostDeviceId = hostDeviceId || null;
   if (hostDeviceId) state.network.isHost = hostDeviceId === state.network.deviceId;
   refreshPlayerDeviceNames();
+
+  if (state.screen === 'game' && state.gamePhase !== 'gameover') {
+    trackDeviceDepartures(previousDevices, state.network.devices, hostDeviceId);
+    // A device promoted mid-game announces the host hand-off.
+    if (!wasHost && state.network.isHost) {
+      addNarrationLog(`${state.network.deviceName} took over hosting after the previous host dropped.`, state.gamePhase);
+      state.hostLostAt = null;
+    }
+  } else {
+    state.departedDevices = {};
+    state.hostLostAt = null;
+  }
 }
+
+// Host-side: watch which devices vanish mid-game; give the host a Wait /
+// Remove choice (with an auto-remove deadline so a stuck game self-heals).
+const DEPARTURE_GRACE_MS = 90 * 1000;
+
+function deviceOwnsAlivePlayers(deviceId) {
+  return state.players.some(player => player.deviceId === deviceId && player.alive);
+}
+
+function trackDeviceDepartures(previousDevices, currentDevices, hostDeviceId) {
+  const currentIds = new Set(currentDevices.map(device => device.deviceId));
+
+  // Returning devices clear their pending departure.
+  Object.keys(state.departedDevices).forEach(deviceId => {
+    if (currentIds.has(deviceId)) {
+      addNarrationLog(`${state.departedDevices[deviceId]?.name || 'A device'} reconnected.`, state.gamePhase);
+      delete state.departedDevices[deviceId];
+    }
+  });
+
+  // Host absence is tracked by every client (grace banner; the relay holds the
+  // host seat for a while so an accidental refresh can reclaim it).
+  if (hostDeviceId && !currentIds.has(hostDeviceId)) {
+    if (!state.hostLostAt) state.hostLostAt = Date.now();
+  } else {
+    state.hostLostAt = null;
+  }
+
+  if (!state.network.isHost) return;
+
+  previousDevices.forEach(device => {
+    if (currentIds.has(device.deviceId)) return;
+    if (device.deviceId === state.network.deviceId) return;
+    if (!deviceOwnsAlivePlayers(device.deviceId)) return;
+    if (state.departedDevices[device.deviceId]) return;
+    state.departedDevices[device.deviceId] = {
+      name: device.deviceName || 'A device',
+      deadline: Date.now() + DEPARTURE_GRACE_MS
+    };
+    addNarrationLog(`${device.deviceName || 'A device'} disconnected. Waiting for them to return...`, state.gamePhase);
+    const epoch = state.gameEpoch;
+    setTimeout(() => {
+      if (state.gameEpoch !== epoch) return;
+      if (!state.departedDevices[device.deviceId]) return;
+      window.removeDepartedDevice?.(device.deviceId);
+    }, DEPARTURE_GRACE_MS + 500);
+  });
+}
+
+// Remove a departed device's players from the running game. The story
+// continues naturally if it is still viable (win conditions re-checked).
+window.removeDepartedDevice = (deviceId) => {
+  if (!state.network.isHost) return;
+  const entry = state.departedDevices[deviceId];
+  delete state.departedDevices[deviceId];
+  const leaving = state.players.filter(player => player.deviceId === deviceId && player.alive);
+  if (leaving.length === 0) {
+    render();
+    return;
+  }
+  state.players = state.players.map(player =>
+    player.deviceId === deviceId && player.alive
+      ? { ...player, alive: false, leftGame: true }
+      : player
+  );
+  const names = leaving.map(player => player.name).join(', ');
+  const note = `${names} left the story (${entry?.name || 'device'} disconnected).`;
+  addNarrationLog(note, state.gamePhase);
+  state.chatMessages.push({
+    id: `msg_sys_${Date.now()}`,
+    day: state.dayNumber,
+    senderId: 'narrator',
+    senderName: 'Narrator',
+    text: note,
+    at: new Date().toISOString()
+  });
+  state.pendingWin = evaluateWinCondition();
+  if (state.pendingWin && ['day', 'night', 'discussion', 'vote'].includes(state.gamePhase)) {
+    finalizeGameOver();
+    return;
+  }
+  render();
+};
+
+// Host chooses to keep waiting: extend the deadline.
+window.waitForDepartedDevice = (deviceId) => {
+  if (!state.departedDevices[deviceId]) return;
+  state.departedDevices[deviceId].deadline = Date.now() + DEPARTURE_GRACE_MS;
+  const epoch = state.gameEpoch;
+  setTimeout(() => {
+    if (state.gameEpoch !== epoch) return;
+    if (!state.departedDevices[deviceId]) return;
+    window.removeDepartedDevice?.(deviceId);
+  }, DEPARTURE_GRACE_MS + 500);
+  render();
+};
 
 function broadcastRealtimeState(force = false) {
   if (!isRealtimeMode()) return;
@@ -2553,9 +2685,11 @@ function scheduleAutoAdvance(key, handlerName, delay = state.botDelayMs) {
   if (state.autoAdvance.key === key) return;
   if (state.autoAdvance.timerId) clearTimeout(state.autoAdvance.timerId);
   state.autoAdvance.key = key;
+  const epoch = state.gameEpoch;
   state.autoAdvance.timerId = setTimeout(() => {
     state.autoAdvance.key = null;
     state.autoAdvance.timerId = null;
+    if (state.gameEpoch !== epoch) return;
     if (typeof window[handlerName] === 'function') window[handlerName]();
   }, delay);
 }
@@ -2830,7 +2964,10 @@ function buildNarration(eventName, context = {}) {
     const backstory = pack.backstory ? `${pack.backstory} ` : '';
     return `${backstory}${pack.intro} ${state.selectedStory.mood}`;
   }
-  if (eventName === 'day') return `${pack.day}${dramaticSuffix}`;
+  if (eventName === 'day') {
+    const echo = describeNightEcho();
+    return `${pack.day}${echo ? ` ${echo}` : ''}${dramaticSuffix}`;
+  }
   if (eventName === 'night') return `${pack.night}${dramaticSuffix}`;
   if (eventName === 'morning') {
     if (context.attackHappened && context.saved) {
@@ -2841,9 +2978,32 @@ function buildNarration(eventName, context = {}) {
     }
     return `${pack.morning} No confirmed kill, but danger remains.`;
   }
-  if (eventName === 'discussion') return pack.discussion;
-  if (eventName === 'vote') return pack.vote;
+  if (eventName === 'discussion') {
+    const echo = describeNightEcho();
+    return `${pack.discussion}${echo ? ` ${echo}` : ''}`;
+  }
+  if (eventName === 'vote') {
+    const voteEcho = describeVoteStakes();
+    return `${pack.vote}${voteEcho ? ` ${voteEcho}` : ''}`;
+  }
   return `${state.selectedStory.mood}`;
+}
+
+// One public sentence about last night, woven into day/discussion narration.
+function describeNightEcho() {
+  const s = state.lastNightSummary;
+  if (!s) return '';
+  if (s.type === 'death') return `The ${s.role}'s death — ${s.method} — hangs over every conversation: ${s.victim} is gone.`;
+  if (s.type === 'saved') return `${s.victim} survived the night by a thread; someone was there when it counted.`;
+  if (s.type === 'escaped') return `${s.victim} bolted from their own room in the dark and lived — their story matters now.`;
+  if (s.type === 'blocked') return `Somewhere, a bolted door held against a midnight break-in. The would-be killer walked away empty-handed.`;
+  if (s.type === 'quiet') return `The night passed without blood — which means somebody is being patient.`;
+  return '';
+}
+
+function describeVoteStakes() {
+  const alive = getAlivePlayers().length;
+  return alive <= 4 ? `Only ${alive} remain. There is no room left for a wrong guess.` : '';
 }
 
 function calculateRolesFromPreset(preset, count) {
@@ -3287,6 +3447,7 @@ function startGame() {
 
   state.screen = 'game';
   state.gamePhase = 'reveal';
+  state.gameEpoch = (state.gameEpoch || 0) + 1;
   state.dayNumber = 1;
   state.narrative = buildNarration('intro');
   state.currentPlayerIndex = 0;
@@ -3726,6 +3887,7 @@ function processNight() {
   // The doctor already chose who to protect during their night stance turn, so
   // the morning resolves immediately — no doctor-only phase to leak identity.
   withBotDelay(() => {
+    if (state.gamePhase !== 'night') return;
     processMorning();
   }, Math.max(700, state.botDelayMs));
 }
@@ -3823,6 +3985,19 @@ function processMorning() {
   }
   addNarrationLog(deathMessage, 'announcement');
 
+  // Public summary for narration (no secret info: only what morning revealed).
+  if (target && defense.outcome === 'blocked') {
+    state.lastNightSummary = { type: 'blocked' };
+  } else if (target && defense.outcome === 'escaped') {
+    state.lastNightSummary = { type: 'escaped', victim: target.name };
+  } else if (target && savedByDoctor) {
+    state.lastNightSummary = { type: 'saved', victim: target.name, method: method.name };
+  } else if (target) {
+    state.lastNightSummary = { type: 'death', victim: target.name, role: getRoleDisplayName(target.role), method: method.deathLabel };
+  } else {
+    state.lastNightSummary = { type: 'quiet' };
+  }
+
   state.nightTarget = null;
   state.nightAttackMethod = null;
   state.mafiaVotes = {};
@@ -3916,6 +4091,12 @@ function processVote() {
     voteMessage += `\n\nVote tally:\n${tallyLines.join('\n')}`;
   }
   addNarrationLog(voteMessage, 'vote_announcement');
+  state.lastVoteSummary = (() => {
+    const eliminatedId = (sorted.length > 0 && (sorted.length === 1 || sorted[0][1] > (sorted[1]?.[1] || 0))) ? sorted[0][0] : null;
+    if (!eliminatedId) return { type: 'tie' };
+    const eliminated = allPlayers.find(p => p.id === eliminatedId);
+    return eliminated ? { type: 'elim', victim: eliminated.name, role: getRoleDisplayName(eliminated.role) } : { type: 'tie' };
+  })();
 
   state.votes = {};
   state.nightPlans = {};
@@ -4338,6 +4519,7 @@ if (IS_SOLO_PAGE) {
   state.screen = 'solo_lobby';
   state.multiplayerMode = 'passplay';
   state.autoJoinPending = false;
+  state.soloResumeAvailable = Boolean(loadSoloStateCache());
 } else if (IS_JOIN_PAGE) {
   if (INITIAL_JOIN_CODE) normalizeCodeFromInput(INITIAL_JOIN_CODE);
   state.screen = 'join_entry';
@@ -4416,6 +4598,7 @@ window.goToJoinPage = () => {
 };
 
 window.goToSetup = () => {
+  state.gameEpoch = (state.gameEpoch || 0) + 1;
   clearAutoAdvance();
   clearBotChatTimers();
   clearDeathAnimation();
@@ -4729,6 +4912,14 @@ window.replayTutorial = () => {
 };
 
 // One-time "check the map" pointer after the tutorial / at game start.
+window.toggleChatDrawer = () => {
+  state.chatDrawerOpen = !state.chatDrawerOpen;
+  if (state.chatDrawerOpen) {
+    state.chatSeenCount = state.chatMessages.filter(message => message.day === state.dayNumber).length;
+  }
+  render();
+};
+
 window.dismissMapHint = () => {
   try {
     localStorage.setItem('mafia_map_hint_seen', '1');
@@ -4851,6 +5042,8 @@ window.copyTextValue = async (text, buttonId = 'copyPortalBtn') => {
 window.startGame = startGame;
 
 window.newGame = () => {
+  state.gameEpoch = (state.gameEpoch || 0) + 1;
+  clearSoloStateCache();
   clearAutoAdvance();
   clearBotChatTimers();
   clearDeathAnimation();
@@ -5135,7 +5328,11 @@ window.sendLobbyMessage = (textOverride = null, senderNameOverride = null) => {
 };
 
 window.sendDiscussionMessage = (textOverride = null) => {
-  if (state.gamePhase !== 'discussion') return;
+  // Multi-device chat is open through the whole game (it is the table talk);
+  // only bots restrict their replies to discussion time.
+  const chatAllowed = state.gamePhase === 'discussion'
+    || (state.screen === 'game' && isMultiDeviceChatEnabled() && state.gamePhase !== 'gameover');
+  if (!chatAllowed) return;
   const source = typeof textOverride === 'string' ? textOverride : state.chatDraft;
   const text = source.trim();
   if (!text) return;
@@ -5155,7 +5352,7 @@ window.sendDiscussionMessage = (textOverride = null) => {
     at: new Date().toISOString()
   });
   state.chatDraft = '';
-  queueBotDiscussion(false, text);
+  if (state.gamePhase === 'discussion') queueBotDiscussion(false, text);
   render();
 };
 
@@ -5307,12 +5504,88 @@ function installRealtimeActionWrappers() {
 
 installRealtimeActionWrappers();
 
-function finalizeAfterRender() {
-  syncUrlState();
-  if (isRealtimeMode()) persistRoomStateCache();
+function persistSoloStateCache() {
+  if (state.entryPage !== 'solo' || state.screen !== 'game') return;
+  if (state.gamePhase === 'gameover') {
+    clearSoloStateCache();
+    return;
+  }
+  try {
+    localStorage.setItem(SOLO_CACHE_KEY, JSON.stringify({
+      version: 1,
+      savedAt: Date.now(),
+      snapshot: buildRealtimeStateSnapshot()
+    }));
+  } catch (error) {
+    // ignore quota/availability issues
+  }
 }
 
+function clearSoloStateCache() {
+  try {
+    localStorage.removeItem(SOLO_CACHE_KEY);
+  } catch (error) {
+    // ignore
+  }
+}
+
+function loadSoloStateCache() {
+  try {
+    const raw = localStorage.getItem(SOLO_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.snapshot || typeof parsed.snapshot !== 'object') return null;
+    if (parsed.savedAt && (Date.now() - Number(parsed.savedAt)) > ROOM_CACHE_TTL_MS) {
+      clearSoloStateCache();
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Resume an interrupted solo game (tab closed / accidental refresh).
+window.resumeSoloGame = () => {
+  const cached = loadSoloStateCache();
+  if (!cached) {
+    state.soloResumeAvailable = false;
+    render();
+    return;
+  }
+  applyRealtimeStateSnapshot(cached.snapshot);
+  state.soloResumeAvailable = false;
+  state.multiplayerMode = 'passplay';
+  state.screen = 'game';
+  render();
+};
+
+window.discardSoloGame = () => {
+  clearSoloStateCache();
+  state.soloResumeAvailable = false;
+  render();
+};
+
+function finalizeAfterRender() {
+  if (state.chatDrawerOpen && state.screen === 'game') {
+    state.chatSeenCount = state.chatMessages.filter(message => message.day === state.dayNumber).length;
+  }
+  syncUrlState();
+  if (isRealtimeMode()) persistRoomStateCache();
+  persistSoloStateCache();
+}
+
+let autoHostAttempted = false;
+
 window.afterRender = () => {
+  // Hosting should be one click from the entry page: when the host page loads,
+  // open the room automatically so QR/code joiners find it live.
+  if (IS_HOST_PAGE && !autoHostAttempted && state.screen === 'multi_lobby'
+      && isRealtimeMode() && state.network.isHost
+      && !state.network.connected && state.network.status !== 'connecting') {
+    autoHostAttempted = true;
+    if (typeof window.connectAsHost === 'function') window.connectAsHost();
+  }
   if (state.autoJoinPending && state.joinCode) {
     state.autoJoinPending = false;
     if (state.screen !== 'multi_lobby') {

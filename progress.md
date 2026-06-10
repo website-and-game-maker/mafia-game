@@ -574,3 +574,6 @@ Note:
 - Hardened chat rendering: new escapeChatText() applied to BOTH lobby and in-game chat (message text + sender names) — HTML in messages now renders as text.
 - Validation: 12/12 focused checks (both directions, attribution, escaping, clear-on-start, zero pageerrors), button sweep PASS, 10-run matrix 10/10.
 - Env note: client relay candidates expect port 8765 — local worktree backends must use --relay-port 8765 or realtime tests fail to join.
+
+## 2026-06-10 - Connection & UX batch (12 items)
+- ERRORS.md-driven cycle (test-log-fix): all 12 logged, root-caused, fixed, verified. Highlights: night turn order now seating-only (was role-grouped = role leak); gameEpoch guards kill cross-game timers (death-during-reveal bug); in-game ? finally renders the instructions modal + new Terms glossary; host.html auto-opens the room; chat is always-on via a collapsible mobile-safe drawer; device-departure flow (host Wait/Remove, auto-remove, win re-check) + relay host-grace so a refreshed host reclaims the same room mid-game; solo games resume after accidental closes; mafia UI fully separated as 👁 Witness risk; narration echoes night/vote outcomes; room tags humanized.

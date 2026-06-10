@@ -705,3 +705,19 @@ Found-and-fixed during verification: pod-snoop missed killer movement when the v
 | Lobby chat focused suite | PASS 12/12 | host↔joiner sync, device attribution, HTML escaped, clears at game start |
 | Button sweep | PASS | |
 | 10-run matrix | PASS 10/10 | incl. 3 realtime runs |
+
+---
+
+## Session 24: Connection/UX batch (2026-06-10)
+
+**Method:** Playwright headless Chromium vs worktree backend (8001/8765); mobile viewport 390×844.
+
+Fixes (per ERRORS.md): seating-order night turns (role-leak), game-epoch timer guards (death-during-reveal), in-game ?+Terms glossary, auto-host on host.html, always-on chat via mobile-safe 💬 drawer with unread badge, departure flow (host Wait/Remove + 90s auto-remove + win re-check), relay host-grace (75s seat hold; refresh reclaims same room), solo resume card, map pulse hint (callout removed), 👁 Witness-risk separation for mafia (no Snoop tags), narration outcome echoes, humanized room tags.
+
+| Test | Result |
+|------|--------|
+| Batch suite | PASS 21/21 |
+| Host refresh reclaim (live game) | PASS — same room, same game, joiner unaffected |
+| Button sweep | PASS |
+| 10-run matrix | PASS 10/10 (4 solo + 3 passplay + 3 realtime full games) |
+| Mobile shots (host lobby / mafia evening / map) | reviewed, clean |

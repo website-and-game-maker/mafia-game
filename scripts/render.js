@@ -82,6 +82,37 @@ function restoreFocusedInputState(snapshot) {
   }
 }
 
+// Friendly labels for raw geography tags/node types ("high_risk" etc.).
+const TAG_LABELS = {
+  high_risk: 'High-risk area',
+  sleep: 'Sleeping quarters',
+  rooms: 'Private rooms',
+  traffic: 'Busy through-traffic',
+  social: 'Social hub',
+  quiet: 'Quiet corner',
+  outdoor: 'Open air',
+  dark: 'Poorly lit',
+  storage: 'Storage space',
+  medical: 'Medical area',
+  tech: 'Technical systems',
+  water: 'Waterside',
+  private_cluster: 'Private bedrooms',
+  investigation: 'Investigation hub',
+  vantage: 'Vantage point',
+  shared: 'Common area',
+  isolated: 'Isolated spot',
+  transit: 'Connecting route',
+  utility: 'Service area'
+};
+
+function humanizeTag(raw) {
+  const key = String(raw || '').trim().toLowerCase();
+  if (!key) return '';
+  if (TAG_LABELS[key]) return TAG_LABELS[key];
+  const cleaned = key.replace(/_/g, ' ');
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 // Chat text comes from other players' devices: always escape it.
 function escapeChatText(raw) {
   return String(raw ?? '')
@@ -123,7 +154,9 @@ function renderLobbyChatPanel() {
 function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) {
   const aliveHumans = getAliveDiscussionHumans();
   const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
-  const chatOpen = state.gamePhase === 'discussion';
+  // Chat is the table talk: open through the whole game, not just discussion.
+  const chatOpen = state.gamePhase === 'discussion'
+    || (state.screen === 'game' && state.gamePhase !== 'gameover');
   const panelClasses = ['chat-panel'];
   if (prominent) panelClasses.push('chat-panel-prominent');
   if (corner) panelClasses.push('chat-panel-corner');
@@ -155,7 +188,27 @@ function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) 
                ${chatOpen ? '' : 'disabled'}/>
         <button class="btn btn-secondary btn-small" onclick="sendDiscussionMessage()" ${chatOpen ? '' : 'disabled'}>Send</button>
       </div>
-      ${chatOpen ? '' : '<div style="color:var(--text-secondary);font-size:0.8rem;margin-top:8px">Chat is read-only outside discussion.</div>'}
+      ${chatOpen ? '' : '<div style="color:var(--text-secondary);font-size:0.8rem;margin-top:8px">Chat reopens when the game continues.</div>'}
+    </div>
+  `;
+}
+
+// Floating chat drawer: a 💬 toggle with an unread badge; the panel only
+// covers the screen when the player asks for it (critical on mobile).
+function renderChatDrawer() {
+  const relevant = state.chatMessages.filter(message => message.day === state.dayNumber).length;
+  const unread = Math.max(0, relevant - (state.chatSeenCount || 0));
+  if (!state.chatDrawerOpen) {
+    return `
+      <button class="chat-drawer-toggle" onclick="toggleChatDrawer()" aria-label="Open chat">
+        💬${unread > 0 ? `<span class="chat-unread-badge">${unread > 9 ? '9+' : unread}</span>` : ''}
+      </button>
+    `;
+  }
+  return `
+    <div class="chat-drawer">
+      <button class="chat-drawer-close" onclick="toggleChatDrawer()" aria-label="Close chat">✕</button>
+      ${renderMultiDeviceChatPanel({ prominent: true })}
     </div>
   `;
 }
@@ -311,6 +364,20 @@ function renderJoinEntry() {
 // SOLO LOBBY
 // -----------------------------------------------------------------------------
 
+function renderSoloResumeCard() {
+  if (!state.soloResumeAvailable) return '';
+  return `
+    <div class="card" style="border-color:#4ade80">
+      <div class="section-label" style="color:#4ade80">▶️ Resume your game</div>
+      <div style="color:var(--text-primary);margin-bottom:12px">You have an unfinished solo game from this device. Pick it up where you left off?</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="resumeSoloGame()">Resume game</button>
+        <button class="btn btn-secondary" onclick="discardSoloGame()">Start fresh</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderSoloLobby() {
   const allPlayers = getAllPlayers();
   const total = getTotalRoles();
@@ -329,6 +396,8 @@ function renderSoloLobby() {
         </div>
       </div>
       <h2 style="color:var(--red-accent)">Solo Game</h2>
+
+      ${renderSoloResumeCard()}
       ${renderNarratorQuickControls()}
 
       <div class="card">
@@ -1036,7 +1105,7 @@ function renderGame() {
       <div class="header-bar" style="margin-bottom:8px">
         <span></span>
         <div class="header-actions">
-          <button class="btn-icon btn-secondary" onclick="toggleMap()" title="Open map">🗺️</button>
+          <button class="btn-icon btn-secondary ${shouldShowMapHint() ? 'map-btn-pulse' : ''}" onclick="toggleMap()" title="Open map">🗺️</button>
           <button class="btn-icon btn-primary" onclick="showInstructions()">?</button>
         </div>
       </div>
@@ -1054,6 +1123,12 @@ function renderGame() {
         }
         return '';
       })()}
+
+      ${shouldShowMapHint() ? `
+        <div class="inline-hint">🗺️ Tip: the glowing map button (top right) shows every room, its exposure, and how rooms connect. <button class="inline-hint-dismiss" onclick="dismissMapHint()">Got it</button></div>
+      ` : ''}
+
+      ${renderConnectionBanners()}
 
       ${renderNarratorQuickControls()}
 
@@ -1106,28 +1181,50 @@ function renderGame() {
       ${content}
     </div>
     ${state.showMap ? renderMapModal() : ''}
-    ${showCornerChat ? renderMultiDeviceChatPanel({ prominent: true, corner: true }) : ''}
-    ${renderMapHintCallout()}
+    ${showCornerChat ? renderChatDrawer() : ''}
+    ${state.showInstructions ? renderInstructionsModal() : ''}
+    ${state.showSettings ? renderSettingsModal() : ''}
     ${state.tutorialStep !== null && state.tutorialStep !== undefined ? renderTutorialOverlay() : ''}
   `;
 }
 
 // One-time pointer toward the map button at the start of a game.
-function renderMapHintCallout() {
-  if (state.tutorialStep !== null && state.tutorialStep !== undefined) return '';
-  if (state.gamePhase !== 'reveal' && state.gamePhase !== 'day') return '';
-  try {
-    if (localStorage.getItem('mafia_map_hint_seen')) return '';
-  } catch (error) {
-    return '';
+// Mid-game connection events: host's wait/remove choice for departed devices,
+// and the host-lost grace banner for everyone else.
+function renderConnectionBanners() {
+  const parts = [];
+  if (state.hostLostAt && !state.network.isHost) {
+    parts.push(`
+      <div class="conn-banner conn-banner-warn">
+        ⚠️ <strong>Host connection lost.</strong> Waiting for them to return — if they stay gone, another device takes over hosting automatically.
+      </div>
+    `);
   }
-  return `
-    <div class="map-hint-callout">
-      <div class="map-hint-arrow">↗</div>
-      <div class="map-hint-text"><strong>🗺️ Map:</strong> see every room, its exposure, and how rooms connect.</div>
-      <button class="btn btn-small btn-secondary" onclick="dismissMapHint()">Got it</button>
-    </div>
-  `;
+  if (state.network.isHost) {
+    Object.entries(state.departedDevices || {}).forEach(([deviceId, entry]) => {
+      const remaining = Math.max(0, Math.ceil(((entry.deadline || 0) - Date.now()) / 1000));
+      parts.push(`
+        <div class="conn-banner">
+          📵 <strong>${escapeChatText(entry.name)}</strong> disconnected. Their players are removed automatically in <strong>${remaining}s</strong> unless they return.
+          <span class="conn-banner-actions">
+            <button class="btn btn-small btn-secondary" onclick="waitForDepartedDevice('${deviceId}')">Wait longer</button>
+            <button class="btn btn-small btn-danger" onclick="removeDepartedDevice('${deviceId}')">Remove now</button>
+          </span>
+        </div>
+      `);
+    });
+  }
+  return parts.join('');
+}
+
+function shouldShowMapHint() {
+  if (state.tutorialStep !== null && state.tutorialStep !== undefined) return false;
+  if (state.gamePhase !== 'reveal' && state.gamePhase !== 'day') return false;
+  try {
+    return !localStorage.getItem('mafia_map_hint_seen');
+  } catch (error) {
+    return false;
+  }
 }
 
 // First-run feature tutorial. Five compact steps; per-device; skippable.
@@ -1151,7 +1248,7 @@ function renderTutorialOverlay() {
     },
     {
       title: '🗺️ Map, chat, and the vote',
-      body: 'The 🗺️ button (top right) shows every room and its exposure. In multi-device games, the chat panel opens during discussion. Compare stories, watch for contradictions, then vote someone out. Good luck.'
+      body: 'The 🗺️ button (top right) shows every room and its exposure. In multi-device games the 💬 bubble (bottom right) is your table talk — open all game. Compare stories, watch for contradictions, then vote someone out. Good luck.'
     }
   ];
   const step = Math.max(0, Math.min(steps.length - 1, state.tutorialStep || 0));
@@ -1260,7 +1357,7 @@ function renderMapModal() {
               : '<div class="floorplan-image-missing">No floorplan image available for this floor.</div>'}
             <div class="map-legend">
               ${Object.entries(NODE_TYPE_ICONS).filter(([type]) => displayCards.some(item => item.node.type === type)).map(([type, icon]) =>
-                `<span class="map-legend-item">${icon} ${type.replace(/_/g, ' ')}</span>`
+                `<span class="map-legend-item">${icon} ${humanizeTag(type)}</span>`
               ).join('')}
             </div>
           </div>
@@ -1277,7 +1374,7 @@ function renderMapModal() {
                   </span>
                 </div>
                 <div class="exposure-heat"><div class="exposure-heat-fill" style="width:${getExposurePct(item.exposure || 0)}%;background:${getExposureColor(item.exposure || 0)}"></div></div>
-                <div class="map-node-type">${item.node.type.replace(/_/g, ' ')}</div>
+                <div class="map-node-type">${humanizeTag(item.node.type)}</div>
                 <div class="floorplan-room-note">${item.note || 'No additional room note.'}</div>
               </div>
             `;
@@ -1353,6 +1450,16 @@ function renderNarratorConsole(allPlayers, alivePlayers) {
 
 function renderRevealPhase(current) {
   if (!current) return '';
+
+  // A player who left (or died) has no reveal turn: skip them silently.
+  if (!current.alive && !current.isBot) {
+    scheduleAutoAdvance(`reveal_dead_${current.id}`, 'nextReveal', 400);
+    return `
+      <div class="card" style="text-align:center">
+        <div style="color:var(--text-secondary)">${current.name} is no longer in the game ${renderThinkingDots()}</div>
+      </div>
+    `;
+  }
 
   if (current.isBot) {
     scheduleAutoAdvance(`reveal_${current.id}`, 'nextReveal');
@@ -1457,7 +1564,7 @@ function renderDayPhase(current, allPlayers) {
       <div class="section-label">1. Where will you be tonight?</div>
       <div style="color:var(--text-secondary);font-size:0.84rem;margin-bottom:10px">
         ${isMafia
-          ? 'Risk reflects how exposed your route is to witnesses.'
+          ? '👁 Witness risk — your team already knows each other; the only number that matters is how likely the town is to SEE your route.'
           : '🔍 Info = how much you are likely to learn. ⚠️ Exposure = how visible you are to threats. They are different: hiding is safe but blind; snooping is informative but loud.'}
       </div>
       <div class="location-grid">
@@ -1475,11 +1582,11 @@ function renderDayPhase(current, allPlayers) {
                 <span class="location-badges">
                   ${infoRange ? `<span class="info-chip">🔍 ${getExposurePct(infoRange.min)}–${getExposurePct(infoRange.max)}%</span>` : ''}
                   <span class="exposure-badge" style="color:${getExposureColor(l.exposure || 0)};border-color:${getExposureColor(l.exposure || 0)}">
-                    ${isMafia ? 'Risk' : '⚠️'} ${getExposurePct(l.exposure || 0)}%
+                    ${isMafia ? '👁' : '⚠️'} ${getExposurePct(l.exposure || 0)}%
                   </span>
                 </span>
               </div>
-              <span style="font-size:0.8rem;color:var(--text-secondary)">${(l.tags || []).join(' • ') || l.nodeType || ''}</span>
+              <span style="font-size:0.8rem;color:var(--text-secondary)">${(l.tags || []).map(humanizeTag).filter(Boolean).join(' · ') || humanizeTag(l.nodeType) || ''}</span>
             </div>
           `;
         }).join('')}
@@ -1487,18 +1594,18 @@ function renderDayPhase(current, allPlayers) {
 
       ${location ? `
         <div class="section-label">
-          ${isMafia ? '2. Route options (low risk → high risk)' : '2. Choose your action (low exposure → high exposure)'}
+          ${isMafia ? '2. Route options (low witness risk → high witness risk)' : '2. Choose your action (low exposure → high exposure)'}
         </div>
         ${!isMafia ? '<div style="color:#fde68a;font-size:0.84rem;margin-bottom:8px">Tip: actions tagged "Snoop" carry the highest information value — watch the 🔍 chip.</div>' : ''}
         <div class="action-list">
           ${[...actions].sort((a, b) => (a.exposure || 0) - (b.exposure || 0)).map(ac => `
             <div class="action-card ${state.selectedAction?.id === ac.id ? 'selected' : ''}" onclick="selectAction('${ac.id}')">
               <div class="action-header">
-                <span class="action-name">${ac.name} ${ac.kind === 'snoop' ? '<span class="action-tag">Snoop</span>' : ''}</span>
+                <span class="action-name">${ac.name} ${ac.kind === 'snoop' && !isMafia ? '<span class="action-tag">Snoop</span>' : ''}</span>
                 <div class="action-stats">
                   ${!isMafia ? `<span class="info-chip">🔍 Info ${getExposurePct(getPlanIntelChance(current, { location: location.id, action: ac }))}%</span>` : ''}
                   <span class="exposure-chip" style="color:${getExposureColor(ac.exposure || 0)};border-color:${getExposureColor(ac.exposure || 0)}">
-                    ${isMafia ? 'Risk' : '⚠️ Exposure'} ${getExposurePct(ac.exposure || 0)}%
+                    ${isMafia ? '👁 Witness risk' : '⚠️ Exposure'} ${getExposurePct(ac.exposure || 0)}%
                   </span>
                 </div>
               </div>
@@ -1942,11 +2049,26 @@ function renderVotePhase(current, alivePlayers) {
 function renderInstructionsModal() {
   const tabs = [
     { id: 'rules', label: '📘 Rules + Gameplay' },
+    { id: 'terms', label: '📖 Terms' },
     { id: 'modes', label: '👥 Modes' }
   ];
   const activeTab = tabs.some(tab => tab.id === state.instructionsTab) ? state.instructionsTab : 'rules';
 
   let content = '';
+  if (activeTab === 'terms') {
+    content = `
+      <h3 style="color:var(--purple-accent);margin-bottom:10px">What the numbers mean</h3>
+      <div class="terms-list">
+        <div class="terms-item"><strong>🔍 Info</strong> — your chance of learning something useful tonight from this choice. Snooping is high-info; hiding is low-info.</div>
+        <div class="terms-item"><strong>⚠️ Exposure</strong> — how visible YOU are: to threats, and to witnesses. High exposure means people notice you (for better or worse).</div>
+        <div class="terms-item"><strong>👁 Witness risk (Mafia only)</strong> — how likely the town is to notice a Mafia route. Mafia already know each other; their only risk is being seen.</div>
+        <div class="terms-item"><strong>💥 Disturbance</strong> — how loud an attack method is. Loud methods wake neighbors (more witnesses) but are harder for a doctor to stabilize... each method states both.</div>
+        <div class="terms-item"><strong>✅ confirmed / 🟡 likely / ⚠️ uncertain</strong> — every intel line tells you the real odds it is true: ~97%, ~78%, ~55%. Uncertain lines can be wrong — or planted by the Mafia.</div>
+        <div class="terms-item"><strong>🛏️ Lock vs exit route</strong> — a locked door can stop a break-in entirely but traps you if it fails; an unlocked door lets killers slip in quietly but gives you a real escape chance.</div>
+        <div class="terms-item"><strong>🌙 Night stance</strong> — what you DO at night (watch, hide, shadow someone, protect someone). Chosen privately on your turn; turn order never reveals roles.</div>
+      </div>
+    `;
+  }
   if (activeTab === 'rules') {
     content = `
       <h3 style="color:var(--purple-accent);margin-bottom:8px">Instructions</h3>
@@ -2010,7 +2132,7 @@ function renderInstructionsModal() {
         <p style="color:var(--text-primary)">If narrator mode is Human, narrator gets first phase turn and must deliver cue before player actions continue. In single-device games this cue is read aloud. In multi-device games this cue is posted in chat.</p>
       </div>
     `;
-  } else {
+  } else if (activeTab === 'modes') {
     content = `
       <h3 style="color:var(--purple-accent);margin-bottom:8px">Mode Guide</h3>
       <p style="color:var(--text-primary)"><strong>Solo:</strong> one human + bots. Great for learning the evidence model, exposure tradeoffs, and voting rhythm.</p>
