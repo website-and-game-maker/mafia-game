@@ -693,3 +693,8 @@ Relay updated for cloud hosting: reads `$PORT`, binds `0.0.0.0`, answers HTTP `G
 | Visual checks | PASS | tutorial, info chips, detective/doctor stances, upgraded map, merged share card, fullscreen Gimkit-style QR (screenshots reviewed) |
 
 Found-and-fixed during verification: pod-snoop missed killer movement when the victim escaped (gate was on attack success, not on the attempt) — watcher now reports the trip regardless of outcome.
+
+### Session 23 addendum: live verification + account rename (2026-06-10)
+- GitHub account renamed PyCoder42 → website-and-game-maker; old Pages URL 404s. New live URL: **https://website-and-game-maker.github.io/mafia-game/** (docs + git remote updated; Deno relay URL unchanged and healthy).
+- Live (new URL): all 4 pages clean (no pageerrors, no /api probing); solo full game to winner; online multiplayer host+join through the Deno relay with named players on both devices — game start synced, joiner sees all participants (7/7 checks).
+- Note: bots-only multiplayer start is correctly blocked by design ("Need at least 1 human") — verified not a regression.

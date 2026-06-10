@@ -564,3 +564,7 @@ Note:
   12. First-run 5-step tutorial overlay (localStorage-gated, skippable, replayable from Instructions).
 - Tests updated: sweep/matrix seed tutorial localStorage; stale doctor-phase clicks removed; matrix waits unchanged.
 - Validation: 12/12 deterministic mechanic checks; core-logic regression (bot votes/phase guard/night picks/win order); button sweep PASS; 10-run matrix 10/10 (4 solo + 3 passplay + 3 realtime). INSTRUCTIONS.md rewritten for new flow.
+
+### 2026-06-10 addendum
+- GitHub account renamed (PyCoder42 → website-and-game-maker): live site moved to https://website-and-game-maker.github.io/mafia-game/ (old URL 404s). Docs + git remote updated. Live verification re-run on the new URL: 19/19 page+solo checks and 7/7 online-multiplayer checks green.
+- Also removed an accidentally-committed venv symlink (had broken one Pages build).

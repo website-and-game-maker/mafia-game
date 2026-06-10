@@ -2,7 +2,7 @@
 
 A browser-based Mafia party game with location-based gameplay and an intel/risk system.
 
-**Repo:** https://github.com/PyCoder42/mafia-game
+**Repo:** https://github.com/website-and-game-maker/mafia-game
 
 ---
 

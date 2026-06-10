@@ -16,7 +16,7 @@ The game has two pieces:
 Already configured to deploy from the `master` branch root. The live URL is:
 
 ```
-https://pycoder42.github.io/mafia-game/
+https://website-and-game-maker.github.io/mafia-game/
 ```
 
 Any push to `master` redeploys. `.nojekyll` is present so every file (including `scripts/`) is served verbatim.
@@ -30,7 +30,7 @@ This is the only step that needs a one-time account signup. ~3 minutes.
 ### Option A — Render (recommended, has a free tier)
 
 1. Sign in / sign up at <https://dashboard.render.com>.
-2. **New → Blueprint**, connect the `PyCoder42/mafia-game` repo. Render reads [`render.yaml`](render.yaml) and creates a free web service named `mafia-relay`.
+2. **New → Blueprint**, connect the `website-and-game-maker/mafia-game` repo. Render reads [`render.yaml`](render.yaml) and creates a free web service named `mafia-relay`.
    - (Or **New → Web Service** manually: Runtime **Python**, Build `pip install -r requirements.txt`, Start `python scripts/realtime_server.py`, Health check path `/health`.)
 3. Wait for the first deploy to go live. Copy the service URL, e.g. `https://mafia-relay.onrender.com`.
 4. Edit [`scripts/config.js`](scripts/config.js) and set the relay URL (note **`wss://`**, the secure WebSocket scheme):
