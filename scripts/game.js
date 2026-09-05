@@ -758,7 +758,9 @@ const state = {
   nightTarget: null,
   mafiaVotes: {},
   mafiaKillMethods: {},
-  doctorSave: null,
+  // Per-doctor protect choices, keyed by doctor id (a single shared scalar here would let
+  // a second doctor's confirm silently overwrite the first doctor's choice every night).
+  doctorSaves: {},
   votes: {},
   intelResults: {},
   chatMessages: [],
@@ -2219,6 +2221,17 @@ window.removeDepartedDevice = (deviceId) => {
       ? { ...player, alive: false, leftGame: true }
       : player
   );
+  // Purge this device's already-cast night/vote actions so a departed player can't
+  // still swing a mafia kill, doctor save, or day vote after being removed.
+  leaving.forEach(player => {
+    delete state.mafiaVotes[player.id];
+    delete state.mafiaKillMethods[player.id];
+    delete state.nightAwareness[player.id];
+    delete state.detectiveStances[player.id];
+    delete state.doctorSaves[player.id];
+    delete state.nightPlans[player.id];
+    delete state.votes[player.id];
+  });
   const names = leaving.map(player => player.name).join(', ');
   const note = `${names} left the story (${entry?.name || 'device'} disconnected).`;
   addNarrationLog(note, state.gamePhase);
@@ -2399,6 +2412,10 @@ function handleRealtimeMessage(message) {
   if (message.type === 'action_request') {
     if (!state.network.isHost) return;
     const action = message.action;
+    // Security: only ever run actions this client itself is willing to forward.
+    // Without this whitelist check, any connected device could ask the host to
+    // call ANY window-scoped function (including window.eval) by name.
+    if (!REALTIME_FORWARD_ACTIONS.has(action)) return;
     const args = Array.isArray(message.args) ? message.args : [];
     const handler = window[action];
     if (typeof handler !== 'function') return;
@@ -3087,7 +3104,7 @@ function getStartWarnings() {
   const mafia = state.roleConfig.mafia || 0;
   const town = total - mafia;
   if (state.roleConfig.villager < 0) warnings.push('Not enough villagers!');
-  if (state.roleConfig.mafia === 0 && getAllPlayers().length >= 3) warnings.push('No mafia assigned!');
+  if (state.roleConfig.mafia === 0) warnings.push('No mafia assigned!');
   if (mafia >= town && total >= 3) warnings.push('Mafia currently outnumber or match Town.');
   return warnings;
 }
@@ -3103,6 +3120,7 @@ function canStart() {
   if (allPlayers.length < minPlayers) return false;
   if (state.screen === 'multi_lobby' && humans.length === 0) return false;
   if (state.roleConfig.villager < 0) return false;
+  if (mafia === 0) return false;
   if (mafia >= town) return false;
   return true;
 }
@@ -3387,7 +3405,7 @@ function beginNightPhase() {
   state.nightAwareness = {};
   state.detectiveStances = {};
   state.snoopPrimaryTargets = {};
-  state.doctorSave = null;
+  state.doctorSaves = {};
   state.nightDefenseOutcome = null;
   state.nightAttackMethod = null;
   state.narrative = buildNarration('night');
@@ -3470,7 +3488,7 @@ function startGame() {
   state.nightAwareness = {};
   state.mafiaVotes = {};
   state.mafiaKillMethods = {};
-  state.doctorSave = null;
+  state.doctorSaves = {};
   state.votes = {};
   state.intelResults = {};
   state.chatMessages = [];
@@ -3592,7 +3610,7 @@ function botMakeDecisions(phase) {
     aliveBots
       .filter(bot => bot.role === 'doctor')
       .forEach(bot => {
-        if (state.doctorSave) return;
+        if (state.doctorSaves[bot.id]) return; // this doctor already chose tonight
         const candidates = alivePlayers.filter(player => player.id !== bot.id);
         const ranked = [...candidates].sort((a, b) => {
           const ea = getPlanExposure(a, state.nightPlans[a.id]);
@@ -3600,7 +3618,7 @@ function botMakeDecisions(phase) {
           return eb - ea;
         });
         const pick = Math.random() < 0.6 ? ranked[0] : randomChoice(candidates);
-        state.doctorSave = pick?.id || null;
+        if (pick) state.doctorSaves[bot.id] = pick.id;
       });
 
     // Bot detective chooses a night stance; shadowing one person is their
@@ -3675,7 +3693,14 @@ function processNight() {
     methodCountsByTarget[targetId][methodId] = (methodCountsByTarget[targetId][methodId] || 0) + 1;
   });
 
-  const sorted = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
+  // Shuffle before the (stable) sort so a tied mafia vote resolves randomly instead of
+  // always favoring whichever target happened to be voted for first.
+  const voteEntries = Object.entries(voteCounts);
+  for (let i = voteEntries.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [voteEntries[i], voteEntries[j]] = [voteEntries[j], voteEntries[i]];
+  }
+  const sorted = voteEntries.sort((a, b) => b[1] - a[1]);
   const targetId = sorted[0]?.[0];
   const methodCounts = targetId ? methodCountsByTarget[targetId] || {} : {};
   const sortedMethodCounts = Object.entries(methodCounts).sort((a, b) => b[1] - a[1]);
@@ -3905,7 +3930,7 @@ function describeNightStance(player) {
       return option ? option.name.replace(/^[^ ]+ /, '') : 'Sweep the routes';
     }
   }
-  if (player.role === 'doctor' && state.doctorSave) {
+  if (player.role === 'doctor' && state.doctorSaves[player.id]) {
     return 'Kept watch, ready to help';
   }
   return getNightAwarenessChoice(player.id).name;
@@ -3942,7 +3967,9 @@ function processMorning() {
     };
     clearDeathAnimation();
   } else {
-    const doctorTriedSave = Boolean(target && state.doctorSave && state.doctorSave === target.id);
+    // Any doctor who chose to protect the actual attack target counts — each doctor
+    // acts independently, so this is NOT limited to a single shared save slot.
+    const doctorTriedSave = Boolean(target) && Object.values(state.doctorSaves || {}).some(savedId => savedId === target.id);
     let saveChance = 0;
     if (doctorTriedSave) {
       saveChance = getDoctorSaveChance(method, attackCount, { victimLocked: Boolean(defense.victimLocked) });
@@ -4003,7 +4030,7 @@ function processMorning() {
   state.mafiaVotes = {};
   state.mafiaKillMethods = {};
   state.nightAttackCounts = {};
-  state.doctorSave = null;
+  state.doctorSaves = {};
   state.nightDefenseOutcome = null;
   state.detectiveStances = {};
   state.snoopPrimaryTargets = {};
@@ -4111,7 +4138,7 @@ function processVote() {
   state.mafiaKillMethods = {};
   state.nightAttackCounts = {};
   state.nightAttackMethod = null;
-  state.doctorSave = null;
+  state.doctorSaves = {};
   state.intelResults = {};
   state.pendingWin = evaluateWinCondition();
   state.announcement = voteMessage;
@@ -4253,7 +4280,8 @@ function advanceNightActor() {
 function confirmDoctorProtectForCurrent() {
   const current = getCurrentPlayer();
   if (!current || current.role !== 'doctor') return;
-  state.doctorSave = state.selectedSave || null;
+  if (state.selectedSave) state.doctorSaves[current.id] = state.selectedSave;
+  else delete state.doctorSaves[current.id];
   // Doctors keep their head down while standing ready.
   state.nightAwareness[current.id] = 'low_profile';
   state.selectedSave = null;
@@ -5069,7 +5097,7 @@ window.newGame = () => {
   state.nightAwareness = {};
   state.nightAttackCounts = {};
   state.nightAttackMethod = null;
-  state.doctorSave = null;
+  state.doctorSaves = {};
   state.votes = {};
   state.intelResults = {};
   state.chatMessages = [];
