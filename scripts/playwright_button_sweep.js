@@ -158,7 +158,7 @@ async function clickLocatorIfVisible(locator) {
       }
 
       if (await clickIfVisible(page, '.tutorial-card button:has-text("Skip")')) { await sleep(120); continue; }
-      if (await clickIfVisible(page, '.map-hint-callout button')) { await sleep(120); continue; }
+      if (await clickIfVisible(page, '.inline-hint-dismiss')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Continue to Player Turns")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Reveal My Role")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Got it!")')) { await sleep(120); continue; }

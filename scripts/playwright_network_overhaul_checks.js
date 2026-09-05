@@ -99,7 +99,7 @@ async function main() {
         errors.push('QR touch-copy element is missing');
       } else {
         const title = await qrTouch.getAttribute('title');
-        if (title !== 'Click to copy') errors.push(`QR tooltip should be "Click to copy", got "${title}"`);
+        if (title !== 'Click for fullscreen QR + code') errors.push(`QR tooltip should be "Click for fullscreen QR + code", got "${title}"`);
       }
       const qrImageTagCount = await page.locator('.qr-copy-wrap img').count();
       if (qrImageTagCount > 0) errors.push('QR should not be rendered as draggable <img>');

@@ -4,7 +4,7 @@
 # connects devices to each other. Deploy it once and point the game at it:
 #
 #   1. Go to https://dashboard.render.com  ->  New  ->  Blueprint
-#   2. Connect the GitHub repo (PyCoder42/mafia-game) and apply this blueprint.
+#   2. Connect the GitHub repo (website-and-game-maker/mafia-game) and apply this blueprint.
 #   3. When it finishes, copy the service URL (e.g. https://mafia-relay.onrender.com).
 #   4. In scripts/config.js set:
 #         productionRelayUrl: 'wss://mafia-relay.onrender.com'

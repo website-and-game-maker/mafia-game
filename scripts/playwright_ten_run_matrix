@@ -115,7 +115,7 @@ async function playUntilGameOver(page, options = {}) {
 
     if (await clickIfVisible(page, 'button:has-text("Continue to Player Turns")')) { progressed = true; await sleep(80); continue; }
     if (await clickIfVisible(page, '.tutorial-card button:has-text("Skip")')) { progressed = true; await sleep(80); continue; }
-    if (await clickIfVisible(page, '.map-hint-callout button')) { progressed = true; await sleep(60); continue; }
+    if (await clickIfVisible(page, '.inline-hint-dismiss')) { progressed = true; await sleep(60); continue; }
     if (await clickIfVisible(page, 'button:has-text("Reveal My Role")')) { progressed = true; await sleep(80); continue; }
     if (await clickIfVisible(page, 'button:has-text("Got it!")')) { progressed = true; await sleep(80); continue; }
     if (await clickIfVisible(page, 'button:has-text("Plan My Night")')) { progressed = true; await sleep(80); continue; }
@@ -314,10 +314,10 @@ async function runRealtime(browser, run) {
     }
 
     // Verify large room code modal (host feature).
-    const showLarge = host.getByRole('button', { name: 'Show Large' }).first();
+    const showLarge = host.getByRole('button', { name: '🔳 QR' }).first();
     if (await showLarge.isVisible().catch(() => false)) {
       await showLarge.click();
-      const largeCode = await host.locator('.big-room-code-value').first().innerText().catch(() => '');
+      const largeCode = await host.locator('.big-code-value').first().innerText().catch(() => '');
       notes.push(`largeCode=${largeCode.trim()}`);
       await host.getByRole('button', { name: 'Close' }).first().click();
     }

@@ -66,12 +66,13 @@ Core phases:
 - `reveal`
 - `day`
 - `night`
-- `morning_doctor`
 - `announcement`
 - `discussion`
 - `vote`
 - `vote_announcement`
 - `gameover`
+
+There is no separate `morning_doctor` phase — the doctor's protect choice happens during `night`, and save/death resolution happens inside `processMorning()` without its own phase.
 
 ## Source of Truth Files
 

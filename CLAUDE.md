@@ -10,9 +10,11 @@ A browser-based Mafia party game with location-based gameplay and an intel/risk 
 
 ```bash
 cd mafia-game
-python3 -m http.server 8000
+python3 server.py
 # Open http://localhost:8000
 ```
+
+`server.py` is the unified local backend (serves the static site + the realtime relay). See [AGENTS.md](AGENTS.md) for the split-process fallback and direct entry points (`solo.html`, `host.html`, `join.html`).
 
 ---
 
@@ -20,19 +22,31 @@ python3 -m http.server 8000
 
 ```
 mafia-game/
-├── index.html           # Entry point
+├── index.html           # Main entry (solo/multiplayer setup)
+├── solo.html             # Solo-focused entry point
+├── host.html             # Host-focused entry point
+├── join.html             # Join-focused entry point
+├── game.html             # Legacy flow alias (redirects to index with params)
+├── server.py             # Unified local backend (HTTP + realtime relay)
 ├── styles/main.css      # All styles
+├── assets/floorplans/   # Floorplan images by story/floor
 ├── scripts/
-│   ├── game.js          # Game logic, state, event handlers
-│   └── render.js        # UI rendering functions
-├── CLAUDE.md            # This file (project overview)
-├── INSTRUCTIONS.md      # Game rules for players
-├── TODOS.md             # Ordered task list
-├── TESTING_LOG.md       # Test session logs
-└── venv/                # Python dev server
+│   ├── game.js             # Game logic, state, event handlers
+│   ├── render.js           # UI rendering functions
+│   ├── geography_data.js   # Story map graphs (nodes/edges) + floorplan metadata
+│   ├── narration_data.js   # Story narration packs/backstory templates
+│   ├── realtime_server.py  # WebSocket relay for realtime multi-device sync
+│   └── playwright_*.js     # Playwright regression/smoke scripts
+├── deno-deploy/          # Production relay (Deno Deploy)
+├── CLAUDE.md             # This file (project overview)
+├── AGENTS.md             # Agent workflow guide (more detailed/current than this file)
+├── INSTRUCTIONS.md       # Game rules for players
+├── DEPLOYMENT.md         # Deploy instructions (static site + relay)
+├── TODOS.md              # Ordered task list
+├── TESTING_LOG.md        # Test session logs
+├── progress.md           # Ongoing implementation/testing notes
+└── venv/                 # Python dev server
 ```
-
-**Note:** `original.html` is an old single-file version. Can be deleted.
 
 ---
 
@@ -50,8 +64,8 @@ mafia-game/
 ### State (`game.js`)
 
 Single global `state` object holds everything:
-- `screen` - Current screen (setup, solo_lobby, multi_lobby, game)
-- `gamePhase` - Current phase (reveal, day, night, morning_doctor, announcement, discussion, vote, vote_announcement, gameover)
+- `screen` - Current screen (setup, solo_lobby, multi_lobby, join_entry, multi_entry, game)
+- `gamePhase` - Current phase (reveal, day, night, announcement, discussion, vote, vote_announcement, gameover). There is no separate morning-doctor phase — the doctor's protect choice is made during `night`, and the save/death resolution happens inside `processMorning()` without its own phase.
 - `players[]`, `bots[]` - Player/bot arrays with {id, name, role, alive, isBot}
 - `roleConfig` - {mafia, doctor, detective, villager} counts
 - `nightPlans{}`, `votes{}`, `intelResults{}` - Per-round data
@@ -104,11 +118,14 @@ Global functions on `window`:
 
 ## Intel/Risk System
 
-Actions have:
-- `intel` (0-1) - Chance to learn something
-- `risk` (0-5) - Danger level
+Locations are nodes in a per-story geography graph (`scripts/geography_data.js`), not static objects with hardcoded actions. Each node has a base `exposure` (0-1, derived from its `type` via `EXPOSURE_BY_NODE_TYPE` unless overridden), and edges between nodes carry `distance`/`sight`/`hearing` used for witness/proximity checks.
 
-Locations have base risk. Being where the murder happens = chance to witness. Detectives get bonuses.
+Actions are built dynamically per node via `buildAction()` (`scripts/game.js`):
+- `exposure` (0-1) - Danger of being seen/caught, blended from location + action exposure
+- `info` (0-1) - Chance to learn something, driven by action *kind* (`INFO_BY_ACTION_KIND`) independently of exposure — hiding is safe but blind, snooping is loud but informative
+- `toLegacyRisk(exposure)` maps exposure to the old 0-5 risk scale for display/back-compat
+
+Being where the murder happens = chance to witness. Detectives get bonuses (lower exposure, higher info). Gameplay presets (`getGameplayMod()`) and Environment Rules profiles further modify these multipliers.
 
 ---
 
@@ -116,19 +133,7 @@ Locations have base risk. Being where the murder happens = chance to witness. De
 
 ### Adding a Location
 
-In `game.js`, add to `STORY_PRESETS[].locations[]`:
-```js
-{
-  id: 'lounge',
-  name: 'Lounge',
-  risk: 2,
-  canLock: true,
-  actions: [
-    { id: 'relax', name: '☕ Relax', intel: 0.1, risk: 1, desc: 'Low key' },
-    { id: 'snoop', name: '🔍 Snoop', intel: 0.6, risk: 4, desc: 'Risky' }
-  ]
-}
-```
+In `scripts/geography_data.js`, add a node to the relevant story's `nodes[]` (id/name/type/tags), wire it into `edges[]` (distance/sight/hearing to at least one existing node), and add it to a floor's `rooms[]` in `floorplan` (with a floorplan image + connection notes if needed). Actions for the node are generated automatically by `buildAction()`/`buildLocationActions()` in `scripts/game.js` based on the node's `type`/exposure — you don't hand-author per-location action lists.
 
 ### Adding a Role
 
@@ -183,15 +188,10 @@ After fixes, run through TESTING_LOG.md checklist. Log results. Any new bugs go 
 ## Current Status
 
 ### Working
-- Solo mode with bots
-- All game phases
-- Role reveal, day/night cycle, voting
-- Game balance validation (Mafia >= Town blocked)
-- Game ending explanations
+- Solo mode with bots, pass-and-play (single-device), and realtime multi-device multiplayer (WebSocket relay, host-authoritative)
+- All game phases, role reveal, day/night cycle, voting
+- Geography-graph based locations with exposure/info mechanics, floorplan visuals, and narration
+- Game balance validation (Mafia >= Town blocked), game ending explanations
 
 ### Needs Work
-See `TODOS.md` for full list. Key items:
-- Solo mode UX improvements
-- Better role scaling for large games
-- Intel/risk display improvements
-- Multi-device multiplayer (WebSocket)
+See `TODOS.md` for the current backlog (empty means no open items — the project is between improvement passes).

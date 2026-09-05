@@ -69,11 +69,9 @@ async function main() {
     if (!isAbsoluteHttpUrl(joinPortal)) errors.push(`join portal URL is not absolute http(s): ${joinPortal}`);
     if (/join\.html/i.test(joinPortal)) errors.push(`join portal URL still includes join.html: ${joinPortal}`);
 
-    const fastJoinInput = host.locator('.card:has(.section-label:has-text("Fast Join Link")) input[readonly]').first();
-    const fastJoinUrl = await fastJoinInput.inputValue().catch(() => '');
-    if (!isAbsoluteHttpUrl(fastJoinUrl)) errors.push(`fast join link is not absolute http(s): ${fastJoinUrl}`);
-    if (!/\bjoin=/.test(fastJoinUrl)) errors.push(`fast join link missing join code query: ${fastJoinUrl}`);
-    if (/join\.html/i.test(fastJoinUrl)) errors.push(`fast join link still contains join.html: ${fastJoinUrl}`);
+    // Fast Join Link was folded into the single portal-copy-row join link (12-item overhaul,
+    // 2026-06-10) — the join-code query + non-join.html checks above already cover it.
+    if (!/\bjoin=/.test(joinPortal)) errors.push(`join link missing join code query: ${joinPortal}`);
 
     const networkInfo = await host.evaluate(async () => {
       const response = await fetch('/api/network-info', { cache: 'no-store' });
@@ -86,31 +84,16 @@ async function main() {
       errors.push(`preferred portal URL should favor LAN address on localhost runs, got ${networkInfo.preferredPortalUrl}`);
     }
 
-    const advancedToggleVisible = await host.locator('details.share-advanced-links').isVisible().catch(() => false);
-    if (!advancedToggleVisible) {
-      errors.push('advanced link options are missing');
-    } else {
-      const altInputs = host.locator('details.share-advanced-links input[readonly]');
-      const altUrls = [];
-      const altCount = await altInputs.count();
-      for (let i = 0; i < altCount; i += 1) {
-        altUrls.push(await altInputs.nth(i).inputValue().catch(() => ''));
-      }
-      if (altUrls.length === 0) {
-        errors.push('advanced link options visible but no alternate URLs listed');
-      }
-      altUrls.forEach((url) => {
-        if (!isAbsoluteHttpUrl(url)) errors.push(`alternate URL is not absolute http(s): ${url}`);
-      });
-    }
+    // Advanced/alternate share links were consolidated into the single portal-copy-row link
+    // (12-item overhaul, 2026-06-10) — nothing else to check here.
 
     const presetDescriptions = await host.evaluate(() => ROLE_PRESETS.map(preset => String(preset.description || '')));
     presetDescriptions.forEach((description, index) => {
-      if (!description.startsWith('Role targets:')) {
-        errors.push(`preset description ${index + 1} is not literal role-target text: ${description}`);
+      if (description.trim().length < 20) {
+        errors.push(`preset description ${index + 1} is missing/too short: ${description}`);
       }
-      if (/loud strikes|cinematic|chaos mode|blood moon ambience/i.test(description)) {
-        errors.push(`preset description ${index + 1} still has thematic language: ${description}`);
+      if (/^role targets:/i.test(description.trim())) {
+        errors.push(`preset description ${index + 1} regressed to raw role-target text: ${description}`);
       }
     });
 
@@ -165,7 +148,7 @@ async function main() {
     await join.getByRole('button', { name: 'Join Game' }).click();
     if (!await waitForConnected(join)) errors.push('join page failed to connect to host');
 
-    const environmentLineVisible = await join.getByText('Environment profile:').first().isVisible().catch(() => false);
+    const environmentLineVisible = await join.getByText('Selected Environment Rules').first().isVisible().catch(() => false);
     if (!environmentLineVisible) {
       errors.push('join read-only setup is missing environment profile rules line');
     }
