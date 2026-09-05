@@ -53,7 +53,7 @@ function renderIntelLine(icon, item, extraStyle = '') {
       badge = `<span class="reliability-chip reliability-uncertain">⚠️ uncertain (~${Math.round(confidence * 100)}%)</span>`;
     }
   }
-  return `<div class="intel-item" style="${extraStyle}">${icon} ${text} ${badge}</div>`;
+  return `<div class="intel-item" style="${extraStyle}">${icon} ${escapeHtml(text)} ${badge}</div>`;
 }
 
 function captureFocusedInputState() {
@@ -113,13 +113,18 @@ function humanizeTag(raw) {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
-// Chat text comes from other players' devices: always escape it.
-function escapeChatText(raw) {
+// Player/bot/device names and chat text all come from other devices over the network
+// (or from a local input with no charset restriction): always escape before inserting
+// as HTML text or into a quoted attribute.
+function escapeHtml(raw) {
   return String(raw ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+function escapeChatText(raw) {
+  return escapeHtml(raw);
 }
 
 // Lobby chat: visible to every connected device while waiting in the room.
@@ -181,7 +186,7 @@ function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) 
         `).join('')}
       </div>
       <div class="chat-compose">
-        <input class="input" type="text" value="${state.chatDraft.replace(/"/g, '&quot;')}"
+        <input class="input" type="text" value="${escapeHtml(state.chatDraft)}"
                oninput="setChatDraft(this.value)"
                onkeydown="if(event.key==='Enter'){event.preventDefault();sendDiscussionMessage();}"
                placeholder="${chatOpen ? 'Type message and press Enter' : 'Chat opens during discussion'}"
@@ -415,7 +420,7 @@ function renderSoloLobby() {
             <div class="player-item">
               <span class="player-name">🤖</span>
               <div class="player-item-actions" style="margin-left:auto">
-                <input type="text" class="input inline-edit" value="${b.name.replace(/"/g, '&quot;')}"
+                <input type="text" class="input inline-edit" value="${escapeHtml(b.name)}" maxlength="24"
                        onblur="renameBot('${b.id}', this.value)"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"/>
                 <button class="remove-btn" onclick="removeBot('${b.id}')">×</button>
@@ -623,7 +628,7 @@ function renderMultiLobby() {
         ${isRealtime ? `
           ${state.network.isHost ? '<div class="host-device-banner">🛡️ Host device</div>' : ''}
           <div class="footnote" style="margin-bottom:8px">Rename your device here.</div>
-          <input id="realtimeDeviceNameInput" type="text" class="device-name-inline" value="${state.network.deviceName.replace(/"/g, '&quot;')}" oninput="setRealtimeDeviceName(this.value)" onblur="commitRealtimeDeviceName()" maxlength="32"/>
+          <input id="realtimeDeviceNameInput" type="text" class="device-name-inline" value="${escapeHtml(state.network.deviceName)}" oninput="setRealtimeDeviceName(this.value)" onblur="commitRealtimeDeviceName()" maxlength="32"/>
           <div style="margin-top:10px;font-weight:600">Players on this device (${myDevicePlayers.length})</div>
           <div class="player-list" style="margin-top:8px">
             ${myDevicePlayers.map(player => `
@@ -632,7 +637,7 @@ function renderMultiLobby() {
                    ondragend="this.classList.remove('dragging-row')"
                    ondragover="event.preventDefault()"
                    ondrop="event.preventDefault();reorderPlayerByDrop(event.dataTransfer.getData('text/player-id'),'${player.id}')">
-                <span class="player-name"><span class="drag-handle" title="Drag to reorder">☰</span> 👤 ${player.name}</span>
+                <span class="player-name"><span class="drag-handle" title="Drag to reorder">☰</span> 👤 ${escapeHtml(player.name)}</span>
                 <div class="player-item-actions">
                   <button class="remove-btn" onclick="removePlayer('${player.id}')" title="Remove player">×</button>
                 </div>
@@ -648,7 +653,7 @@ function renderMultiLobby() {
                    ondragend="this.classList.remove('dragging-row')"
                    ondragover="event.preventDefault()"
                    ondrop="event.preventDefault();reorderPlayerByDrop(event.dataTransfer.getData('text/player-id'),'${p.id}')">
-                <span class="player-name"><span class="drag-handle" title="Drag to reorder">☰</span> 👤 ${p.name}</span>
+                <span class="player-name"><span class="drag-handle" title="Drag to reorder">☰</span> 👤 ${escapeHtml(p.name)}</span>
                 <div class="player-item-actions">
                   <button class="remove-btn" onclick="removePlayer('${p.id}')" title="Remove player">×</button>
                 </div>
@@ -658,7 +663,7 @@ function renderMultiLobby() {
           </div>
         `}
         <div class="input-row">
-          <input type="text" class="input ${state.nameError ? 'input-error' : ''}" id="newPlayerInput" placeholder="Add player name..."/>
+          <input type="text" class="input ${state.nameError ? 'input-error' : ''}" id="newPlayerInput" placeholder="Add player name..." maxlength="24"/>
           <button class="btn btn-primary btn-small" onclick="addPlayerFromInput()">Add</button>
         </div>
         ${state.nameError ? `<div class="error-msg">${state.nameError}</div>` : ''}
@@ -674,7 +679,7 @@ function renderMultiLobby() {
             ${groupedPlayers.map(group => `
               <div class="device-player-group">
                 <div class="device-group-title">
-                  <span>${group.isHost ? '🛡️' : '📱'} ${group.deviceName}</span>
+                  <span>${group.isHost ? '🛡️' : '📱'} ${escapeHtml(group.deviceName)}</span>
                   <span class="player-item-actions">
                     ${group.deviceId === state.network.deviceId ? '<span class="device-pill">This device</span>' : '<span class="device-pill">Online</span>'}
                     ${state.network.isHost && group.deviceId !== state.network.deviceId ? `<button class="remove-btn" onclick="removeDevice('${group.deviceId}')" title="Remove device">×</button>` : ''}
@@ -682,7 +687,7 @@ function renderMultiLobby() {
                 </div>
                 ${(group.players || []).map(player => `
                   <div class="player-item">
-                    <span class="player-name">👤 ${player.name}</span>
+                    <span class="player-name">👤 ${escapeHtml(player.name)}</span>
                     <div class="player-item-actions">
                       ${state.network.isHost ? `<button class="remove-btn" onclick="removePlayer('${player.id}')" title="Remove player">×</button>` : ''}
                     </div>
@@ -695,7 +700,7 @@ function renderMultiLobby() {
               <div class="device-group-title">🤖 Bots</div>
               ${botRoster.map(bot => `
                 <div class="player-item">
-                  <span class="player-name">🤖 ${bot.name}</span>
+                  <span class="player-name">🤖 ${escapeHtml(bot.name)}</span>
                 </div>
               `).join('')}
               ${botRoster.length === 0 ? '<div style="color:var(--text-primary);font-size:0.9rem;padding:6px 0 2px 2px">No bots added.</div>' : ''}
@@ -711,7 +716,7 @@ function renderMultiLobby() {
           <div class="bot-list">
             ${state.bots.map(bot => `
               <div class="player-item">
-                <span class="player-name">🤖 ${bot.name}</span>
+                <span class="player-name">🤖 ${escapeHtml(bot.name)}</span>
               </div>
             `).join('')}
             ${state.bots.length === 0 ? '<div style="color:var(--text-primary);text-align:center;padding:12px">No bots yet</div>' : ''}
@@ -730,7 +735,7 @@ function renderMultiLobby() {
               <div class="player-item">
                 <span class="player-name">🤖</span>
                 <div class="player-item-actions" style="margin-left:auto">
-                  <input type="text" class="input inline-edit" value="${b.name.replace(/"/g, '&quot;')}"
+                  <input type="text" class="input inline-edit" value="${escapeHtml(b.name)}" maxlength="24"
                          onblur="renameBot('${b.id}', this.value)"
                          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
                          ${addBotBlocked ? 'disabled' : ''}/>
@@ -928,7 +933,7 @@ function renderRoleConfig(allPlayers, total, warnings) {
           <div class="preset-card ${state.selectedPreset?.id === p.id ? 'selected' : ''}"
                style="${state.selectedPreset?.id === p.id ? `border-color:${p.color};background:${p.color}20` : ''}"
                onclick="selectPreset('${p.id}')">
-            <div class="preset-name" style="color:${p.color}">${p.name}</div>
+            <div class="preset-name" style="color:${p.color}">${escapeHtml(p.name)}</div>
             <div class="preset-desc">${p.description}</div>
           </div>
         `).join('')}
@@ -941,7 +946,7 @@ function renderRoleConfig(allPlayers, total, warnings) {
           <div class="preset-card ${state.selectedGameplayPreset === p.id ? 'selected' : ''}"
                style="${state.selectedGameplayPreset === p.id ? `border-color:${p.color};background:${p.color}20` : ''}"
                onclick="selectGameplayPreset('${p.id}')">
-            <div class="preset-name" style="color:${p.color}">${p.name}</div>
+            <div class="preset-name" style="color:${p.color}">${escapeHtml(p.name)}</div>
             <div class="preset-desc">${p.desc}</div>
           </div>
         `).join('')}
@@ -1039,7 +1044,7 @@ function renderGame() {
         <div class="modal-overlay">
           <div class="modal-content">
             ${renderDeathAnimationCard()}
-            <div class="modal-text">${state.announcement}</div>
+            <div class="modal-text">${escapeHtml(state.announcement)}</div>
             <button class="btn btn-danger btn-lg" onclick="${state.gamePhase === 'announcement' ? 'afterAnnouncement' : 'afterVoteAnnouncement'}()">Continue</button>
           </div>
         </div>
@@ -1074,7 +1079,7 @@ function renderGame() {
           <div class="gameover-title">${state.winner === 'town' ? 'Town Wins!' : 'Mafia Wins!'}</div>
           ${finalDeathMessage ? `
             <div class="gameover-death" style="color:var(--text-secondary);margin-bottom:12px;font-size:0.95rem">
-              ${finalDeathMessage}
+              ${escapeHtml(finalDeathMessage)}
             </div>
           ` : ''}
           ${state.winReason ? `
@@ -1084,7 +1089,7 @@ function renderGame() {
           ` : ''}
           <div class="gameover-roles">
             ${allPlayers.map(p => `
-              <span class="gameover-role" style="background:${ROLES[p.role]?.color}40">${ROLES[p.role]?.icon} ${p.name}</span>
+              <span class="gameover-role" style="background:${ROLES[p.role]?.color}40">${ROLES[p.role]?.icon} ${escapeHtml(p.name)}</span>
             `).join('')}
           </div>
           <button class="btn btn-primary btn-lg" onclick="newGame()">New Game</button>
@@ -1134,7 +1139,7 @@ function renderGame() {
 
       ${showDeviceTurnBanner ? `
         <div class="device-turn-banner ${myDeviceTurn ? 'device-turn-local' : 'device-turn-remote'}">
-          ${myDeviceTurn ? `Your device (${currentDeviceName}) is going now.` : `${currentDeviceName} is going now.`}
+          ${myDeviceTurn ? `Your device (${escapeHtml(currentDeviceName)}) is going now.` : `${escapeHtml(currentDeviceName)} is going now.`}
         </div>
       ` : ''}
 
@@ -1162,7 +1167,7 @@ function renderGame() {
 
       ${state.narrative && !['announcement', 'vote_announcement'].includes(state.gamePhase) ? `
         <div class="narrative-box">
-          <p class="narrative-text">${state.narrative}</p>
+          <p class="narrative-text">${escapeHtml(state.narrative)}</p>
         </div>
       ` : ''}
 
@@ -1172,7 +1177,7 @@ function renderGame() {
         ${allPlayers.map(p => `
           <div class="player-cell ${p.alive ? '' : 'dead'} ${current?.id === p.id && state.showRole ? 'current' : ''}">
             <div class="player-cell-icon">${p.alive ? (p.isBot ? '🤖' : '👤') : '💀'}</div>
-            <div class="player-cell-name">${p.name}</div>
+            <div class="player-cell-name">${escapeHtml(p.name)}</div>
             ${!p.alive ? `<div style="color:var(--text-secondary);font-size:0.75rem">${ROLES[p.role]?.icon}</div>` : ''}
           </div>
         `).join('')}
@@ -1433,7 +1438,7 @@ function renderNarratorConsole(allPlayers, alivePlayers) {
         ` : recentNarration.map(item => `
           <div class="narrator-feed-item">
             <span class="narrator-feed-phase">Day ${item.day} • ${item.phase.replace('_', ' ')}</span>
-            <span>${item.text}</span>
+            <span>${escapeHtml(item.text)}</span>
           </div>
         `).join('')}
       </div>
@@ -1456,7 +1461,7 @@ function renderRevealPhase(current) {
     scheduleAutoAdvance(`reveal_dead_${current.id}`, 'nextReveal', 400);
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary)">${current.name} is no longer in the game ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary)">${escapeHtml(current.name)} is no longer in the game ${renderThinkingDots()}</div>
       </div>
     `;
   }
@@ -1465,7 +1470,7 @@ function renderRevealPhase(current) {
     scheduleAutoAdvance(`reveal_${current.id}`, 'nextReveal');
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is reviewing their role ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${escapeHtml(current.name)} is reviewing their role ${renderThinkingDots()}</div>
         <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
       </div>
     `;
@@ -1476,8 +1481,8 @@ function renderRevealPhase(current) {
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
-        <p style="color:var(--text-secondary);margin-bottom:16px">Only ${current.name} should look at this screen.</p>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${escapeHtml(current.name)}</strong></div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Only ${escapeHtml(current.name)} should look at this screen.</p>
         <button class="btn btn-primary btn-lg" onclick="showCurrentRole()">Reveal My Role</button>
       </div>
     `;
@@ -1500,7 +1505,7 @@ function renderRevealPhase(current) {
       ${teammates.length > 0 ? `
         <div class="teammates-box">
           <div class="teammates-label">Your allies:</div>
-          <div>${teammates.map(t => t.name).join(', ')}</div>
+          <div>${teammates.map(t => escapeHtml(t.name)).join(', ')}</div>
         </div>
       ` : ''}
       <button class="btn btn-primary btn-lg" onclick="nextReveal()">Got it!</button>
@@ -1515,8 +1520,8 @@ function renderDayPhase(current, allPlayers) {
   if (current.isBot || !current.alive) {
     scheduleAutoAdvance(`day_${current.id}_${state.dayNumber}`, 'skipBotDay');
     const label = current.alive
-      ? `🤖 ${current.name} is planning`
-      : `💀 ${current.name} is out — skipping`;
+      ? `🤖 ${escapeHtml(current.name)} is planning`
+      : `💀 ${escapeHtml(current.name)} is out — skipping`;
     return `
       <div class="card" style="text-align:center">
         <div style="color:var(--text-secondary);margin-bottom:12px">${label} ${renderThinkingDots()}</div>
@@ -1530,7 +1535,7 @@ function renderDayPhase(current, allPlayers) {
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${escapeHtml(current.name)}</strong></div>
         <p style="color:var(--text-secondary);margin-bottom:16px">Plan privately before passing again.</p>
         <button class="btn btn-warning btn-lg" onclick="showCurrentRole()">Plan My Night</button>
       </div>
@@ -1558,7 +1563,7 @@ function renderDayPhase(current, allPlayers) {
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <span style="color:${ROLES[current.role]?.color}">${ROLES[current.role]?.icon}</span>
-        <span>${current.name}</span>
+        <span>${escapeHtml(current.name)}</span>
       </div>
 
       <div class="section-label">1. Where will you be tonight?</div>
@@ -1621,7 +1626,7 @@ function renderDayPhase(current, allPlayers) {
           ${targetCandidates.map(player => `
             <button class="target-btn ${state.selectedActionTarget === player.id ? 'selected' : ''}"
                     onclick="selectActionTarget('${player.id}')">
-              ${player.isBot ? '🤖 ' : '👤 '}${player.name}
+              ${player.isBot ? '🤖 ' : '👤 '}${escapeHtml(player.name)}
             </button>
           `).join('')}
         </div>
@@ -1670,7 +1675,7 @@ function renderNightPhase(current, alivePlayers) {
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${escapeHtml(current.name)}</strong></div>
         <p style="color:var(--text-secondary);margin-bottom:16px">Night action is private.</p>
         <button class="btn btn-warning btn-lg" onclick="showCurrentRole()">Open Night Console</button>
       </div>
@@ -1691,7 +1696,7 @@ function renderNightPhase(current, alivePlayers) {
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           <span style="color:${ROLES.mafia.color}">${ROLES.mafia.icon}</span>
-          <span>${current.name}</span>
+          <span>${escapeHtml(current.name)}</span>
           <span style="font-size:0.85rem;color:var(--text-secondary)">(Night strike)</span>
         </div>
 
@@ -1699,7 +1704,7 @@ function renderNightPhase(current, alivePlayers) {
         <div class="mafia-intel">
           <div class="mafia-intel-header">Night visibility</div>
           <div style="font-size:0.95rem;color:#e2e8f0">${visionNote}</div>
-          ${briefing.map(line => `<div style="font-size:0.84rem;color:#e2e8f0;margin-top:5px">• ${line}</div>`).join('')}
+          ${briefing.map(line => `<div style="font-size:0.84rem;color:#e2e8f0;margin-top:5px">• ${escapeHtml(line)}</div>`).join('')}
         </div>
 
         ${targets.length > 0 ? `
@@ -1713,13 +1718,13 @@ function renderNightPhase(current, alivePlayers) {
             return `
               <div class="target-card ${state.selectedTarget === p.id ? 'selected' : ''}" onclick="selectTarget('${p.id}')">
                 <div class="target-info">
-                  <div class="target-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
+                  <div class="target-name">${p.isBot ? '🤖' : '👤'} ${escapeHtml(p.name)}</div>
                   <div class="target-details">
                     <span class="target-location">📍 ${plan?.locationName || 'Unknown'}</span>
                     ${plan?.action?.name ? `<span class="target-action">→ ${plan.action.name}</span>` : ''}
-                    ${trackedTargetName ? `<span class="target-action">Tracking: ${trackedTargetName}</span>` : ''}
+                    ${trackedTargetName ? `<span class="target-action">Tracking: ${escapeHtml(trackedTargetName)}</span>` : ''}
                   </div>
-                  ${snoopers.length > 0 ? `<div class="target-snoopers">👀 Snoopers spotted around ${p.name}'s bedroom zone: ${snoopers.join(', ')}</div>` : ''}
+                  ${snoopers.length > 0 ? `<div class="target-snoopers">👀 Snoopers spotted around ${escapeHtml(p.name)}'s bedroom zone: ${snoopers.map(escapeHtml).join(', ')}</div>` : ''}
                 </div>
                 <div class="target-kill-btn">🎯 Mark</div>
               </div>
@@ -1762,7 +1767,7 @@ function renderNightPhase(current, alivePlayers) {
       <div class="card" style="border-color:#2563eb">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <span style="color:${ROLES.doctor.color}">${ROLES.doctor.icon}</span>
-          <span>${current.name}</span>
+          <span>${escapeHtml(current.name)}</span>
           <span style="font-size:0.85rem;color:var(--text-secondary)">(Night stance)</span>
         </div>
         <div class="section-label" style="color:#60a5fa">💉 Choose who to watch over tonight</div>
@@ -1775,7 +1780,7 @@ function renderNightPhase(current, alivePlayers) {
             <button class="target-btn ${state.selectedSave === p.id ? 'selected' : ''}"
                     style="${state.selectedSave === p.id ? 'background:rgba(37,99,235,0.4);border-color:#2563eb' : ''}"
                     onclick="selectSave('${p.id}')">
-              ${p.isBot ? '🤖 ' : ''}${p.name}${p.id === current.id ? ' (you)' : ''}
+              ${p.isBot ? '🤖 ' : ''}${escapeHtml(p.name)}${p.id === current.id ? ' (you)' : ''}
             </button>
           `).join('')}
         </div>
@@ -1798,7 +1803,7 @@ function renderNightPhase(current, alivePlayers) {
       <div class="card" style="border-color:#9932cc">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <span style="color:${ROLES.detective.color}">${ROLES.detective.icon}</span>
-          <span>${current.name}</span>
+          <span>${escapeHtml(current.name)}</span>
           <span style="font-size:0.85rem;color:var(--text-secondary)">(Night stance)</span>
         </div>
         <div style="color:var(--text-primary);margin-bottom:12px">Choose how you work tonight. Detectives are genuinely harder to notice — about half as likely to be spotted as anyone else doing the same thing.</div>
@@ -1822,7 +1827,7 @@ function renderNightPhase(current, alivePlayers) {
           <div class="target-grid">
             ${targets.map(p => `
               <button class="target-btn ${state.selectedStanceTarget === p.id ? 'selected' : ''}" onclick="selectStanceTarget('${p.id}')">
-                ${p.isBot ? '🤖 ' : ''}${p.name}
+                ${p.isBot ? '🤖 ' : ''}${escapeHtml(p.name)}
               </button>
             `).join('')}
           </div>
@@ -1845,7 +1850,7 @@ function renderNightPhase(current, alivePlayers) {
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <span style="color:${ROLES[current.role]?.color}">${ROLES[current.role]?.icon}</span>
-        <span>${current.name}</span>
+        <span>${escapeHtml(current.name)}</span>
         <span style="font-size:0.85rem;color:var(--text-secondary)">(Night stance)</span>
       </div>
 
@@ -1959,7 +1964,7 @@ function renderVotePhase(current, alivePlayers) {
     scheduleAutoAdvance(`vote_bot_${current.id}_${state.dayNumber}`, 'skipBotVote');
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is voting ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${escapeHtml(current.name)} is voting ${renderThinkingDots()}</div>
         <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
       </div>
     `;
@@ -1981,7 +1986,7 @@ function renderVotePhase(current, alivePlayers) {
   if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
+        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${escapeHtml(current.name)}</strong></div>
         <p style="color:var(--text-secondary);margin-bottom:16px">Cast your vote privately.</p>
         <button class="btn btn-warning btn-lg" onclick="showCurrentRole()">Cast My Vote</button>
       </div>
@@ -2002,7 +2007,7 @@ function renderVotePhase(current, alivePlayers) {
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span style="color:${ROLES[current.role]?.color}">${current.role !== 'mafia' ? ROLES[current.role]?.icon : '👤'}</span>
-        <span>${current.name}</span>
+        <span>${escapeHtml(current.name)}</span>
       </div>
 
       ${!isMafia ? `
@@ -2030,7 +2035,7 @@ function renderVotePhase(current, alivePlayers) {
           <button class="target-btn ${state.selectedVote === p.id ? 'selected' : ''}"
                   style="${state.selectedVote === p.id ? 'background:rgba(202,138,4,0.4);border-color:var(--yellow-accent)' : ''}"
                   onclick="selectVote('${p.id}')">
-            ${p.isBot ? '🤖 ' : ''}${p.name}
+            ${p.isBot ? '🤖 ' : ''}${escapeHtml(p.name)}
           </button>
         `).join('')}
       </div>
@@ -2274,9 +2279,9 @@ function renderSettingsModal() {
           ${networkingMode === 'custom' ? `
             <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
               <label style="font-size:0.86rem;color:var(--text-primary)">Custom portal URL (http/https)</label>
-              <input type="text" class="input" value="${customPortal.replace(/"/g, '&quot;')}" oninput="setCustomShareBaseUrl(this.value)" placeholder="https://example.com/"/>
+              <input type="text" class="input" value="${escapeHtml(customPortal)}" oninput="setCustomShareBaseUrl(this.value)" placeholder="https://example.com/"/>
               <label style="font-size:0.86rem;color:var(--text-primary)">Custom relay URL (ws/wss)</label>
-              <input type="text" class="input" value="${customRelay.replace(/"/g, '&quot;')}" oninput="setCustomRelayUrl(this.value)" placeholder="wss://example.com:8765"/>
+              <input type="text" class="input" value="${escapeHtml(customRelay)}" oninput="setCustomRelayUrl(this.value)" placeholder="wss://example.com:8765"/>
             </div>
           ` : ''}
           <details style="margin-top:10px">
