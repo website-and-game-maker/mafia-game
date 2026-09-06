@@ -82,14 +82,14 @@
   <use href="#rivet" x="40" y="760"/>
   <use href="#rivet" x="1760" y="760"/>
 
-  <text x="60" y="72" fill="#fde68a" font-size="38" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Midnight Express &#8212; Service Cars</text>
-  <text x="62" y="98" fill="#94a3b8" font-size="17" font-family="Georgia, 'Times New Roman', serif">Dining Car &#183; Smoking Lounge &#183; Service Car &#183; Baggage Hold</text>
+  <text x="60" y="72" fill="#fde68a" font-size="72" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Midnight Express &#8212; Service Cars</text>
+  <text x="62" y="98" fill="#94a3b8" font-size="32" font-family="Georgia, 'Times New Roman', serif">Dining Car &#183; Smoking Lounge &#183; Service Car &#183; Baggage Hold</text>
 
   <!-- compass / direction of travel -->
   <g transform="translate(1668,78)">
     <circle r="34" fill="#0b1120" stroke="url(#brass)" stroke-width="3"/>
     <path d="M0,-24 L8,4 L0,-6 L-8,4 Z" fill="#fde68a"/>
-    <text x="0" y="-30" fill="#fde68a" font-size="12" font-family="Georgia, serif" text-anchor="middle">N</text>
+    <text x="0" y="-30" fill="#fde68a" font-size="23" font-family="Georgia, serif" text-anchor="middle">N</text>
   </g>
 
   <!-- ================= CAR 1 : DINING CAR ================= -->
@@ -109,8 +109,8 @@
     <rect x="350" y="196" width="50" height="34" rx="6" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2"/>
     <rect x="430" y="196" width="50" height="34" rx="6" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2"/>
 
-    <text x="295" y="238" text-anchor="middle" fill="#fde68a" font-size="30" font-family="Georgia, 'Times New Roman', serif">Dining Car</text>
-    <text x="295" y="262" text-anchor="middle" fill="#fed7aa" font-size="15" font-family="Georgia, 'Times New Roman', serif">rows of dining tables &#8212; high social traffic</text>
+    <text x="295" y="238" text-anchor="middle" fill="#fde68a" font-size="57" font-family="Georgia, 'Times New Roman', serif">Dining Car</text>
+    <text x="295" y="262" text-anchor="middle" fill="#fed7aa" font-size="28" font-family="Georgia, 'Times New Roman', serif">rows of dining tables &#8212; high social traffic</text>
 
     <!-- dining tables -->
     <use href="#diningTable" x="165" y="420"/>
@@ -120,7 +120,7 @@
     <!-- cross-floor hint: back toward Sleeper Section -->
     <g transform="translate(90,700)">
       <rect x="-14" y="-30" width="28" height="30" fill="#1f2937" stroke="url(#brass)" stroke-width="2"/>
-      <text x="24" y="-8" fill="#fbbf24" font-size="14" font-family="Georgia, serif">&#8592; car link (Observation Corridor, Sleeper Section)</text>
+      <text x="24" y="-8" fill="#fbbf24" font-size="27" font-family="Georgia, serif">&#8592; car link (Observation Corridor, Sleeper Section)</text>
     </g>
   </g>
 
@@ -129,7 +129,7 @@
     <rect x="510" y="168" width="35" height="40" fill="url(#brass)" opacity="0.55"/>
     <rect x="510" y="620" width="35" height="40" fill="url(#brass)" opacity="0.55"/>
     <line x1="527" y1="212" x2="527" y2="616" stroke="#fde68a" stroke-width="2" stroke-dasharray="7 7" opacity="0.6"/>
-    <text x="527" y="420" text-anchor="middle" fill="#fde68a" font-size="14" font-family="Georgia, serif" transform="rotate(-90 527 420)">open car &#8212; widest connection</text>
+    <text x="527" y="460" text-anchor="middle" fill="#fde68a" font-size="16" font-family="Georgia, serif" transform="rotate(-90 527 460)">open car &#8212; widest connection</text>
   </g>
 
   <!-- ================= CAR 2 : SMOKING LOUNGE ================= -->
@@ -148,8 +148,8 @@
     <rect x="725" y="196" width="50" height="34" rx="6" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2" opacity="0.65"/>
     <rect x="805" y="196" width="50" height="34" rx="6" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2" opacity="0.65"/>
 
-    <text x="735" y="238" text-anchor="middle" fill="#e9d5ff" font-size="30" font-family="Georgia, 'Times New Roman', serif">Smoking Lounge</text>
-    <text x="735" y="262" text-anchor="middle" fill="#c4b5fd" font-size="15" font-family="Georgia, 'Times New Roman', serif">armchairs &amp; a small bar &#8212; noisy, social</text>
+    <text x="735" y="238" text-anchor="middle" fill="#e9d5ff" font-size="57" font-family="Georgia, 'Times New Roman', serif">Smoking Lounge</text>
+    <text x="735" y="262" text-anchor="middle" fill="#c4b5fd" font-size="28" font-family="Georgia, 'Times New Roman', serif">armchairs &amp; a small bar &#8212; noisy, social</text>
 
     <!-- armchair cluster -->
     <use href="#armchair" x="610" y="330"/>
@@ -169,7 +169,7 @@
     <rect x="927" y="300" width="76" height="228" fill="#0b1120" stroke="url(#brass)" stroke-width="3"/>
     <rect x="933" y="306" width="30" height="216" fill="#334155" stroke="#94a3b8"/>
     <rect x="967" y="306" width="30" height="216" fill="#334155" stroke="#94a3b8"/>
-    <text x="965" y="290" text-anchor="middle" fill="#e2e8f0" font-size="16" font-family="Georgia, serif">sliding doors</text>
+    <text x="965" y="140" text-anchor="middle" fill="#e2e8f0" font-size="22" font-family="Georgia, serif">sliding doors</text>
   </g>
 
   <!-- ================= CAR 3 : SERVICE CAR ================= -->
@@ -184,8 +184,8 @@
     <circle cx="1065" cy="214" r="15" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2"/>
     <circle cx="1165" cy="214" r="15" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2"/>
 
-    <text x="1115" y="252" text-anchor="middle" fill="#e2e8f0" font-size="27" font-family="Georgia, 'Times New Roman', serif">Service Car</text>
-    <text x="1115" y="276" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Georgia, 'Times New Roman', serif">narrow utility chokepoint</text>
+    <text x="1115" y="252" text-anchor="middle" fill="#e2e8f0" font-size="30" font-family="Georgia, 'Times New Roman', serif">Service Car</text>
+    <text x="1115" y="272" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Georgia, 'Times New Roman', serif">narrow utility chokepoint</text>
 
     <!-- pipes running along both walls -->
     <use href="#pipe" x="1035" y="360"/>
@@ -199,7 +199,7 @@
 
     <!-- cross-floor hint: down to Exterior Route -->
     <g transform="translate(1005,700)">
-      <text x="0" y="0" fill="#fbbf24" font-size="14" font-family="Georgia, serif">&#9881; maintenance access &#8594; Engine Walkway (Exterior Route)</text>
+      <text x="0" y="0" fill="#fbbf24" font-size="27" font-family="Georgia, serif">&#9881; maintenance access &#8594; Engine Walkway (Exterior Route)</text>
     </g>
   </g>
 
@@ -209,7 +209,7 @@
     <rect x="1225" y="470" width="25" height="190" fill="#0b1120" opacity="0.9"/>
     <rect x="1226" y="350" width="23" height="120" fill="#0b1120" stroke="url(#brass)" stroke-width="3"/>
     <line x1="1237" y1="360" x2="1237" y2="460" stroke="#fde68a" stroke-width="2" stroke-dasharray="4 4"/>
-    <text x="1237" y="338" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Georgia, serif">narrow passage</text>
+    <text x="1237" y="338" text-anchor="middle" fill="#fbbf24" font-size="23" font-family="Georgia, serif">narrow passage</text>
   </g>
 
   <!-- ================= CAR 4 : BAGGAGE HOLD ================= -->
@@ -226,17 +226,19 @@
     <rect x="1290" y="196" width="50" height="30" rx="5" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2" opacity="0.45"/>
     <rect x="1640" y="196" width="50" height="30" rx="5" fill="url(#glassPane)" stroke="url(#brass)" stroke-width="2" opacity="0.45"/>
 
-    <text x="1485" y="240" text-anchor="middle" fill="#e7e5e4" font-size="30" font-family="Georgia, 'Times New Roman', serif">Baggage Hold</text>
-    <text x="1485" y="264" text-anchor="middle" fill="#a8a29e" font-size="15" font-family="Georgia, 'Times New Roman', serif">stacked crates &#8212; cramped, limited exits</text>
+    <text x="1485" y="240" text-anchor="middle" fill="#e7e5e4" font-size="57" font-family="Georgia, 'Times New Roman', serif">Baggage Hold</text>
+    <text x="1485" y="264" text-anchor="middle" fill="#a8a29e" font-size="28" font-family="Georgia, 'Times New Roman', serif">stacked crates &#8212; cramped, limited exits</text>
 
-    <!-- crate stacks -->
+    <!-- crate stacks (translate to position, THEN scale, so scaling doesn't
+         also shrink the x/y placement — a bare x/y+scale(s) on <use> scales
+         the placement too, landing these crates in the wrong car) -->
     <use href="#crate" x="1330" y="380"/>
-    <use href="#crate" x="1330" y="450" transform="scale(0.8)" />
+    <g transform="translate(1330,450) scale(0.8)"><use href="#crate"/></g>
     <use href="#crate" x="1470" y="410"/>
-    <use href="#crate" x="1470" y="480" transform="scale(0.75)"/>
+    <g transform="translate(1470,480) scale(0.75)"><use href="#crate"/></g>
     <use href="#crate" x="1610" y="390"/>
-    <use href="#crate" x="1610" y="460" transform="scale(0.8)"/>
-    <use href="#crate" x="1610" y="520" transform="scale(0.6)"/>
+    <g transform="translate(1610,460) scale(0.8)"><use href="#crate"/></g>
+    <g transform="translate(1610,520) scale(0.6)"><use href="#crate"/></g>
   </g>
 
   <!-- rail line + direction of travel -->
@@ -259,7 +261,7 @@
       <line x1="1650" y1="762" x2="1650" y2="778"/><line x1="1710" y1="762" x2="1710" y2="778"/>
     </g>
     <path d="M1660,770 L1700,770 L1688,758 M1700,770 L1688,782" stroke="#fde68a" stroke-width="4" fill="none"/>
-    <text x="1560" y="756" fill="#64748b" font-size="13" font-family="Georgia, serif">direction of travel</text>
+    <text x="1560" y="756" fill="#64748b" font-size="25" font-family="Georgia, serif">direction of travel</text>
   </g>
 
   <rect width="1800" height="800" fill="url(#vignette)"/>
