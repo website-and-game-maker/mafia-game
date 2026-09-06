@@ -17,6 +17,13 @@
 //   - On an https:// page the URL must be wss:// (a ws:// URL is auto-upgraded
 //     to wss:// to avoid blocked mixed content).
 //   - This file is loaded before game.js on every app page.
+//
+// version
+//   A human-readable build stamp shown by the debug version banner
+//   (scripts/debug_version_banner.js). Bump this string on every deploy you
+//   want to be able to visually confirm went live — a stale banner after a
+//   deploy means the page didn't update (cache, wrong host, etc).
 window.MAFIA_CONFIG = Object.assign({
-  productionRelayUrl: 'wss://mafia-relay-pycoder42.pycoder42.deno.net'
+  productionRelayUrl: 'wss://mafia-relay-pycoder42.pycoder42.deno.net',
+  version: '2026.09.05-1'
 }, window.MAFIA_CONFIG || {});
