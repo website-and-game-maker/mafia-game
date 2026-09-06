@@ -749,7 +749,7 @@ button::-moz-focus-inner { border: 0; }
   background: linear-gradient(160deg, #0f172a 0%, #111827 100%);
   border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 16px;
-  width: min(820px, 95vw);
+  width: min(1040px, 95vw);
   max-height: 88vh;
   overflow: auto;
   padding: 16px;
@@ -769,7 +769,7 @@ button::-moz-focus-inner { border: 0; }
 }
 .floorplan-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: 12px;
 }
 .floorplan-image-card {

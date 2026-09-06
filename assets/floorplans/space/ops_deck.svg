@@ -1,20 +1,213 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
-  <rect width="960" height="620" fill="#111827"/>
-  <text x="70" y="90" fill="#e2e8f0" font-size="30" font-family="Georgia">Station Prometheus - Operations Deck</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 740">
+  <defs>
+    <radialGradient id="oBgGlow" cx="0.42" cy="0.4" r="0.85">
+      <stop offset="0" stop-color="#0b2a45" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="oStars" width="140" height="140" patternUnits="userSpaceOnUse">
+      <circle cx="18" cy="22" r="1.4" fill="#bae6fd" opacity="0.55"/>
+      <circle cx="70" cy="60" r="1" fill="#e0f2fe" opacity="0.4"/>
+      <circle cx="110" cy="18" r="1.6" fill="#7dd3fc" opacity="0.5"/>
+      <circle cx="44" cy="100" r="1" fill="#bae6fd" opacity="0.35"/>
+      <circle cx="126" cy="112" r="1.5" fill="#e0f2fe" opacity="0.5"/>
+    </pattern>
+    <pattern id="oGrid" width="42" height="42" patternUnits="userSpaceOnUse">
+      <path d="M42 0 L0 0 0 42" fill="none" stroke="#1e3a5f" stroke-width="1" opacity="0.35"/>
+    </pattern>
+    <linearGradient id="oMetal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="0.5" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0c4a6e"/>
+    </linearGradient>
+    <linearGradient id="oHazardEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fde68a"/>
+      <stop offset="0.5" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#7c2d12"/>
+    </linearGradient>
+    <linearGradient id="oRoomFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123350"/>
+      <stop offset="1" stop-color="#08192b"/>
+    </linearGradient>
+    <linearGradient id="oHubFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#173a5e"/>
+      <stop offset="1" stop-color="#0a1e33"/>
+    </linearGradient>
+    <linearGradient id="oCargoFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a1d0a"/>
+      <stop offset="1" stop-color="#200c04"/>
+    </linearGradient>
+    <pattern id="oHazardStripe" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="26" height="26" fill="#1a0c04"/>
+      <rect width="13" height="26" fill="#f59e0b"/>
+    </pattern>
+    <radialGradient id="oVignette" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.6" stop-color="#020617" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000208" stop-opacity="0.6"/>
+    </radialGradient>
+    <g id="oRivet">
+      <circle r="4.2" fill="url(#oMetal)"/>
+      <circle r="1.4" fill="#0c4a6e"/>
+    </g>
+    <g id="oHazardBolt">
+      <circle r="4.2" fill="url(#oHazardEdge)"/>
+      <circle r="1.4" fill="#3f1a05"/>
+    </g>
+    <g id="oMonitor">
+      <rect x="-16" y="-13" width="32" height="24" rx="2" fill="#031018" stroke="#38bdf8" stroke-width="2"/>
+      <rect x="-12" y="-9" width="24" height="12" fill="#22d3ee" opacity="0.5"/>
+      <rect x="-6" y="11" width="12" height="4" fill="#0c4a6e"/>
+    </g>
+    <g id="oCrate">
+      <rect x="-24" y="-24" width="48" height="48" fill="#5a2a10" stroke="url(#oHazardEdge)" stroke-width="2.5"/>
+      <line x1="-24" y1="-24" x2="24" y2="24" stroke="#f59e0b" stroke-width="1.4" opacity="0.6"/>
+      <line x1="24" y1="-24" x2="-24" y2="24" stroke="#f59e0b" stroke-width="1.4" opacity="0.6"/>
+      <rect x="-24" y="-24" width="48" height="48" fill="none" stroke="#f59e0b" stroke-width="1" opacity="0.5"/>
+    </g>
+    <g id="oHatch">
+      <rect x="-16" y="-22" width="32" height="44" fill="#0b1c2e" stroke="url(#oMetal)" stroke-width="2.5"/>
+      <line x1="-16" y1="0" x2="16" y2="0" stroke="url(#oMetal)" stroke-width="2"/>
+      <use href="#oRivet" x="-12" y="-16"/><use href="#oRivet" x="12" y="-16"/>
+      <use href="#oRivet" x="-12" y="16"/><use href="#oRivet" x="12" y="16"/>
+    </g>
+  </defs>
 
-  <rect x="90" y="210" width="250" height="180" rx="16" fill="#1f2937" stroke="#94a3b8"/>
-  <text x="128" y="300" fill="#e2e8f0" font-size="24" font-family="Georgia">Central Hub</text>
+  <rect width="1180" height="740" fill="#020617"/>
+  <rect width="1180" height="740" fill="url(#oStars)"/>
+  <rect width="1180" height="740" fill="url(#oGrid)"/>
+  <rect width="1180" height="740" fill="url(#oBgGlow)"/>
 
-  <rect x="370" y="130" width="250" height="160" rx="16" fill="#1e293b" stroke="#7dd3fc"/>
-  <text x="392" y="214" fill="#bae6fd" font-size="23" font-family="Georgia">Surveillance Bay</text>
+  <rect x="14" y="14" width="1152" height="712" rx="18" fill="none" stroke="url(#oMetal)" stroke-width="5"/>
+  <rect x="25" y="25" width="1130" height="690" rx="12" fill="none" stroke="#0e7490" stroke-width="1.5" opacity="0.55"/>
+  <use href="#oRivet" x="36" y="36"/>
+  <use href="#oRivet" x="1144" y="36"/>
+  <use href="#oRivet" x="36" y="704"/>
+  <use href="#oRivet" x="1144" y="704"/>
 
-  <rect x="370" y="330" width="250" height="160" rx="16" fill="#1d4ed8" stroke="#93c5fd"/>
-  <text x="440" y="414" fill="#dbeafe" font-size="24" font-family="Georgia">Medbay</text>
+  <text x="50" y="62" fill="#7dd3fc" font-size="34" font-family="'Courier New', ui-monospace, monospace" font-weight="bold" letter-spacing="1">PROMETHEUS STATION</text>
+  <text x="52" y="90" fill="#94a3b8" font-size="18" font-family="'Courier New', ui-monospace, monospace" letter-spacing="3">OPERATIONS DECK &#8226; SCHEMATIC 04-A</text>
 
-  <rect x="650" y="210" width="220" height="180" rx="16" fill="#7c2d12" stroke="#fdba74"/>
-  <text x="680" y="300" fill="#ffedd5" font-size="23" font-family="Georgia">Cargo Hold</text>
+  <g transform="translate(1098,72)">
+    <circle r="38" fill="#08131f" stroke="url(#oMetal)" stroke-width="2.5"/>
+    <circle r="26" fill="none" stroke="#0e7490" stroke-width="1" opacity="0.7"/>
+    <path d="M0,-30 L7,-6 L0,-14 L-7,-6 Z" fill="#7dd3fc"/>
+    <text x="0" y="-40" text-anchor="middle" fill="#7dd3fc" font-size="13" font-family="'Courier New', monospace">FWD</text>
+    <text x="0" y="50" text-anchor="middle" fill="#64748b" font-size="12" font-family="'Courier New', monospace">AFT</text>
+  </g>
 
-  <path d="M342 300 L370 210" stroke="#e2e8f0" stroke-width="4"/>
-  <path d="M342 300 L370 410" stroke="#e2e8f0" stroke-width="4"/>
-  <path d="M622 300 L650 300" stroke="#e2e8f0" stroke-width="4"/>
+  <!-- ================= CENTRAL HUB ================= -->
+  <g>
+    <path d="M195,260 L465,260 L505,300 L505,560 L465,600 L195,600 L155,560 L155,300 Z"
+          fill="url(#oHubFill)" stroke="url(#oMetal)" stroke-width="4"/>
+    <use href="#oRivet" x="195" y="260"/><use href="#oRivet" x="465" y="260"/>
+    <use href="#oRivet" x="195" y="600"/><use href="#oRivet" x="465" y="600"/>
+
+    <!-- radial circulation floor pattern -->
+    <circle cx="330" cy="430" r="120" fill="none" stroke="#0e7490" stroke-width="1.5" opacity="0.6"/>
+    <circle cx="330" cy="430" r="80" fill="none" stroke="#0e7490" stroke-width="1.5" opacity="0.5"/>
+    <circle cx="330" cy="430" r="40" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.6"/>
+    <g stroke="#0e7490" stroke-width="1.2" opacity="0.5">
+      <line x1="330" y1="310" x2="330" y2="550"/>
+      <line x1="210" y1="430" x2="450" y2="430"/>
+      <line x1="245" y1="345" x2="415" y2="515"/>
+      <line x1="415" y1="345" x2="245" y2="515"/>
+    </g>
+
+    <text x="330" y="360" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="'Courier New', ui-monospace, monospace" font-weight="bold">Central Hub</text>
+    <text x="330" y="383" text-anchor="middle" fill="#7dd3fc" font-size="15" font-family="'Courier New', ui-monospace, monospace" opacity="0.85">main circulation &#8226; connects most sectors</text>
+
+    <!-- cross-deck hint -->
+    <text x="330" y="240" text-anchor="middle" fill="#fbbf24" font-size="16" font-family="'Courier New', ui-monospace, monospace">&#8593; ring passage to Habitat Deck</text>
+  </g>
+
+  <!-- ================= SURVEILLANCE BAY ================= -->
+  <g>
+    <path d="M630,120 L910,120 L940,150 L940,310 L910,340 L630,340 L600,310 L600,150 Z"
+          fill="url(#oRoomFill)" stroke="url(#oMetal)" stroke-width="4"/>
+    <use href="#oRivet" x="630" y="120"/><use href="#oRivet" x="910" y="120"/>
+    <use href="#oRivet" x="630" y="340"/><use href="#oRivet" x="910" y="340"/>
+
+    <text x="770" y="165" text-anchor="middle" fill="#e0f2fe" font-size="26" font-family="'Courier New', ui-monospace, monospace" font-weight="bold">Surveillance Bay</text>
+    <text x="770" y="187" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="'Courier New', ui-monospace, monospace" opacity="0.85">console and monitor station</text>
+
+    <!-- bank of monitors -->
+    <g>
+      <use href="#oMonitor" x="665" y="235"/><use href="#oMonitor" x="712" y="235"/>
+      <use href="#oMonitor" x="759" y="235"/><use href="#oMonitor" x="806" y="235"/><use href="#oMonitor" x="853" y="235"/>
+      <use href="#oMonitor" x="665" y="285"/><use href="#oMonitor" x="712" y="285"/>
+      <use href="#oMonitor" x="759" y="285"/><use href="#oMonitor" x="806" y="285"/><use href="#oMonitor" x="853" y="285"/>
+    </g>
+
+    <!-- cross-deck hint -->
+    <text x="770" y="362" text-anchor="middle" fill="#fbbf24" font-size="15" font-family="'Courier New', ui-monospace, monospace">&#8681; service route to Engineering</text>
+  </g>
+
+  <!-- corridor: central hub <-> surveillance bay -->
+  <g stroke="url(#oMetal)" stroke-width="10" opacity="0.85">
+    <line x1="470" y1="320" x2="615" y2="255"/>
+  </g>
+  <use href="#oHatch" x="542" y="288" transform="rotate(-27 542 288)"/>
+
+  <!-- ================= MEDBAY ================= -->
+  <g>
+    <path d="M628,495 L912,495 L940,523 L940,657 L912,685 L628,685 L600,657 L600,523 Z"
+          fill="url(#oRoomFill)" stroke="url(#oMetal)" stroke-width="4"/>
+    <use href="#oRivet" x="628" y="495"/><use href="#oRivet" x="912" y="495"/>
+    <use href="#oRivet" x="628" y="685"/><use href="#oRivet" x="912" y="685"/>
+
+    <text x="770" y="540" text-anchor="middle" fill="#e0f2fe" font-size="26" font-family="'Courier New', ui-monospace, monospace" font-weight="bold">Medbay</text>
+    <text x="770" y="562" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="'Courier New', ui-monospace, monospace" opacity="0.85">medical bay</text>
+
+    <!-- bed -->
+    <g transform="translate(715,620)">
+      <rect x="-55" y="-22" width="110" height="44" rx="6" fill="#0c2436" stroke="#38bdf8" stroke-width="2"/>
+      <rect x="-50" y="-18" width="24" height="16" rx="4" fill="#7dd3fc" opacity="0.55"/>
+      <line x1="-30" y1="0" x2="45" y2="0" stroke="#38bdf8" stroke-width="1.4" opacity="0.6"/>
+    </g>
+    <!-- medical cross -->
+    <g transform="translate(855,620)">
+      <rect x="-8" y="-26" width="16" height="52" rx="3" fill="#f87171"/>
+      <rect x="-26" y="-8" width="52" height="16" rx="3" fill="#f87171"/>
+    </g>
+  </g>
+
+  <!-- corridor: central hub <-> medbay -->
+  <g stroke="url(#oMetal)" stroke-width="10" opacity="0.85">
+    <line x1="470" y1="545" x2="615" y2="605"/>
+  </g>
+  <use href="#oHatch" x="542" y="575" transform="rotate(24 542 575)"/>
+
+  <!-- ================= CARGO HOLD (freight lift corridor) ================= -->
+  <g stroke="url(#oHazardEdge)" stroke-width="14" opacity="0.9">
+    <line x1="508" y1="430" x2="905" y2="430"/>
+  </g>
+  <g stroke="#1a0c04" stroke-width="14" opacity="0.35">
+    <line x1="508" y1="430" x2="905" y2="430"/>
+  </g>
+  <g stroke="#fde68a" stroke-width="3" fill="none">
+    <path d="M600,422 L616,430 L600,438"/>
+    <path d="M700,422 L716,430 L700,438"/>
+    <path d="M800,422 L816,430 L800,438"/>
+  </g>
+  <text x="706" y="410" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="'Courier New', ui-monospace, monospace">freight lift</text>
+
+  <g>
+    <path d="M940,260 L1100,260 L1130,290 L1130,570 L1100,600 L940,600 L910,570 L910,290 Z"
+          fill="url(#oCargoFill)" stroke="url(#oHazardEdge)" stroke-width="4"/>
+    <path d="M940,260 L1100,260 L1130,290 L1130,300 L905,300 L905,290 Z" fill="url(#oHazardStripe)" opacity="0.8"/>
+    <path d="M940,600 L1100,600 L1130,570 L1130,560 L905,560 L905,570 Z" fill="url(#oHazardStripe)" opacity="0.8"/>
+    <use href="#oHazardBolt" x="940" y="260"/><use href="#oHazardBolt" x="1100" y="260"/>
+    <use href="#oHazardBolt" x="940" y="600"/><use href="#oHazardBolt" x="1100" y="600"/>
+
+    <text x="1020" y="345" text-anchor="middle" fill="#ffedd5" font-size="26" font-family="'Courier New', ui-monospace, monospace" font-weight="bold">Cargo Hold</text>
+    <text x="1020" y="367" text-anchor="middle" fill="#fdba74" font-size="13" font-family="'Courier New', ui-monospace, monospace" opacity="0.9">freight bay &#8226; blind spots</text>
+
+    <use href="#oCrate" x="975" y="440"/>
+    <use href="#oCrate" x="1035" y="440"/>
+    <use href="#oCrate" x="1005" y="495"/>
+    <use href="#oCrate" x="1005" y="405"/>
+    <use href="#oCrate" x="975" y="530"/>
+    <use href="#oCrate" x="1035" y="530"/>
+  </g>
+
+  <rect width="1180" height="740" fill="url(#oVignette)"/>
 </svg>

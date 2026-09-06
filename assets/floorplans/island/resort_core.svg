@@ -1,16 +1,216 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
-  <rect width="960" height="620" fill="#082f49"/>
-  <text x="70" y="90" fill="#cffafe" font-size="30" font-family="Georgia">Coral Bay Resort - Core Buildings</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650">
+  <defs>
+    <linearGradient id="sandGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3d9a4"/>
+      <stop offset="1" stop-color="#d3a662"/>
+    </linearGradient>
+    <linearGradient id="deckGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c68a4e"/>
+      <stop offset="1" stop-color="#8a5a2b"/>
+    </linearGradient>
+    <linearGradient id="thatchGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9713c"/>
+      <stop offset="1" stop-color="#5f3c1c"/>
+    </linearGradient>
+    <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fef3c7"/>
+      <stop offset="1" stop-color="#e2bd84"/>
+    </linearGradient>
+    <linearGradient id="wallGradClinic" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0f9ff"/>
+      <stop offset="1" stop-color="#cbd8e6"/>
+    </linearGradient>
+    <linearGradient id="woodFrame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8b87a"/>
+      <stop offset="0.5" stop-color="#a5672f"/>
+      <stop offset="1" stop-color="#5c3417"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0.6" stop-color="#0f172a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0.65"/>
+    </radialGradient>
+    <radialGradient id="jungleWash" cx="0.08" cy="0.1" r="0.5">
+      <stop offset="0" stop-color="#16a34a" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#16a34a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="oceanWash" cx="0.92" cy="0.95" r="0.5">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
 
-  <rect x="90" y="150" width="260" height="200" rx="16" fill="#164e63" stroke="#67e8f9"/>
-  <text x="116" y="250" fill="#ccfbf1" font-size="26" font-family="Georgia">Bungalow Row</text>
+    <g id="palm">
+      <path d="M0,0 C-6,-26 6,-46 -3,-72 C-8,-84 2,-96 -4,-108" fill="none" stroke="#7a4a23" stroke-width="6" stroke-linecap="round"/>
+      <g transform="translate(-4,-108)" fill="#1f8a4c" stroke="#166534" stroke-width="1">
+        <path d="M0,0 C-30,-18 -62,-14 -82,6 C-54,-2 -26,-2 0,0 Z"/>
+        <path d="M0,0 C-24,-32 -48,-46 -74,-48 C-46,-32 -22,-16 0,0 Z"/>
+        <path d="M0,0 C-6,-36 -18,-58 -40,-72 C-22,-50 -10,-24 0,0 Z"/>
+        <path d="M0,0 C6,-36 18,-58 40,-72 C22,-50 10,-24 0,0 Z"/>
+        <path d="M0,0 C24,-32 48,-46 74,-48 C46,-32 22,-16 0,0 Z"/>
+        <path d="M0,0 C30,-18 62,-14 82,6 C54,-2 26,-2 0,0 Z"/>
+      </g>
+    </g>
 
-  <rect x="380" y="150" width="260" height="200" rx="16" fill="#155e75" stroke="#a5f3fc"/>
-  <text x="420" y="250" fill="#ecfeff" font-size="26" font-family="Georgia">Main Lodge</text>
+    <g id="hut">
+      <rect x="-30" y="-38" width="60" height="38" fill="url(#wallGrad)" stroke="#8a5a2b" stroke-width="2"/>
+      <path d="M-40,-38 L0,-80 L40,-38 Z" fill="url(#thatchGrad)" stroke="#4a2c12" stroke-width="2"/>
+      <path d="M-34,-42 L34,-42 M-27,-51 L27,-51 M-19,-60 L19,-60 M-10,-69 L10,-69" stroke="#4a2c12" stroke-width="1.5" opacity="0.55"/>
+      <rect x="-8" y="-20" width="16" height="20" fill="#4a2c12"/>
+    </g>
 
-  <rect x="670" y="190" width="200" height="160" rx="16" fill="#0f766e" stroke="#5eead4"/>
-  <text x="726" y="278" fill="#ccfbf1" font-size="25" font-family="Georgia">Clinic</text>
+    <g id="signpost">
+      <line x1="0" y1="0" x2="0" y2="-34" stroke="#6b4423" stroke-width="5" stroke-linecap="round"/>
+      <rect x="-6" y="-50" width="46" height="18" rx="3" fill="#dba25c" stroke="#4a2c12" stroke-width="2"/>
+      <path d="M40,-50 L54,-41 L40,-32 Z" fill="#dba25c" stroke="#4a2c12" stroke-width="2"/>
+    </g>
 
-  <path d="M352 250 L378 250" stroke="#e2e8f0" stroke-width="4"/>
-  <path d="M642 250 L668 250" stroke="#e2e8f0" stroke-width="4"/>
+    <g id="knot">
+      <circle r="9" fill="#6b4423" stroke="#3f2510" stroke-width="2"/>
+      <path d="M-6,-6 L6,6 M-6,6 L6,-6" stroke="#3f2510" stroke-width="1.5"/>
+    </g>
+
+    <g id="tuft">
+      <path d="M-6,0 Q-4,-14 0,-2 Q4,-14 6,0 Q0,-6 -6,0 Z" fill="#3f7d32" opacity="0.7"/>
+    </g>
+  </defs>
+
+  <rect width="1000" height="650" fill="#0f172a"/>
+
+  <!-- decorative wood-plank frame -->
+  <rect x="14" y="14" width="972" height="622" rx="22" fill="none" stroke="url(#woodFrame)" stroke-width="6"/>
+  <rect x="26" y="26" width="948" height="598" rx="16" fill="none" stroke="#5c3417" stroke-width="1.5" opacity="0.6"/>
+  <rect x="26" y="26" width="948" height="598" rx="16" fill="url(#jungleWash)"/>
+  <rect x="26" y="26" width="948" height="598" rx="16" fill="url(#oceanWash)"/>
+  <use href="#knot" x="30" y="30"/>
+  <use href="#knot" x="970" y="30"/>
+  <use href="#knot" x="30" y="620"/>
+  <use href="#knot" x="970" y="620"/>
+
+  <text x="500" y="62" text-anchor="middle" fill="#fef3c7" font-size="34" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Coral Bay &#8212; Resort Core</text>
+  <text x="500" y="86" text-anchor="middle" fill="#cbd5e1" font-size="15" font-family="Georgia, 'Times New Roman', serif">Bungalow Row &#183; Main Lodge &#183; Clinic</text>
+
+  <!-- compass -->
+  <g transform="translate(925,95)">
+    <circle r="30" fill="#0b1120" stroke="url(#woodFrame)" stroke-width="3"/>
+    <path d="M0,-20 L6,4 L0,-4 L-6,4 Z" fill="#fef3c7"/>
+    <text x="0" y="-25" fill="#fef3c7" font-size="11" text-anchor="middle" font-family="Georgia, serif">N</text>
+  </g>
+
+  <!-- ================= BUNGALOW ROW ================= -->
+  <g>
+    <rect x="60" y="140" width="300" height="440" rx="28" fill="url(#sandGrad)" stroke="#8a5a2b" stroke-width="4"/>
+    <text x="210" y="176" text-anchor="middle" fill="#4a2c12" font-size="28" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Bungalow Row</text>
+    <text x="210" y="198" text-anchor="middle" fill="#6b4423" font-size="14" font-family="Georgia, 'Times New Roman', serif">row of thatched guest bungalows</text>
+
+    <path d="M100,220 Q210,250 130,320 Q80,360 190,400 Q260,430 150,480 Q100,510 200,545" fill="none" stroke="#c9955a" stroke-width="14" stroke-linecap="round" opacity="0.55"/>
+
+    <use href="#hut" x="150" y="270"/>
+    <use href="#hut" x="270" y="250"/>
+    <use href="#hut" x="120" y="400"/>
+    <use href="#hut" x="270" y="410"/>
+    <use href="#hut" x="190" y="545"/>
+
+    <use href="#palm" transform="translate(90,190) scale(0.6)"/>
+    <use href="#palm" transform="translate(335,205) scale(0.55)"/>
+    <use href="#palm" transform="translate(90,560) scale(0.8)"/>
+    <use href="#palm" transform="translate(335,560) scale(0.7)"/>
+
+    <use href="#tuft" x="105" y="558"/>
+    <use href="#tuft" x="320" y="230"/>
+    <use href="#tuft" x="230" y="480"/>
+  </g>
+
+  <!-- ================= MAIN LODGE ================= -->
+  <g>
+    <rect x="400" y="110" width="340" height="470" rx="28" fill="url(#sandGrad)" stroke="#8a5a2b" stroke-width="4"/>
+    <text x="570" y="146" text-anchor="middle" fill="#4a2c12" font-size="28" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Main Lodge</text>
+    <text x="570" y="168" text-anchor="middle" fill="#6b4423" font-size="14" font-family="Georgia, 'Times New Roman', serif">the big central resort building</text>
+
+    <!-- deck -->
+    <rect x="450" y="350" width="240" height="90" fill="url(#deckGrad)" stroke="#5c3417" stroke-width="2"/>
+    <g stroke="#5c3417" stroke-width="1" opacity="0.5">
+      <line x1="450" y1="368" x2="690" y2="368"/>
+      <line x1="450" y1="386" x2="690" y2="386"/>
+      <line x1="450" y1="404" x2="690" y2="404"/>
+      <line x1="450" y1="422" x2="690" y2="422"/>
+    </g>
+
+    <!-- porch columns -->
+    <g fill="#e2bd84" stroke="#8a5a2b" stroke-width="1.5">
+      <rect x="470" y="300" width="10" height="52"/>
+      <rect x="520" y="300" width="10" height="52"/>
+      <rect x="565" y="300" width="10" height="52"/>
+      <rect x="610" y="300" width="10" height="52"/>
+      <rect x="660" y="300" width="10" height="52"/>
+    </g>
+
+    <!-- main structure -->
+    <rect x="490" y="230" width="160" height="90" fill="url(#wallGrad)" stroke="#8a5a2b" stroke-width="2.5"/>
+    <rect x="510" y="250" width="26" height="70" fill="#4a2c12"/>
+    <rect x="590" y="250" width="26" height="34" fill="#0c4a6e" opacity="0.55" stroke="#8a5a2b"/>
+
+    <!-- thatched roof -->
+    <path d="M460,230 L570,150 L680,230 Z" fill="url(#thatchGrad)" stroke="#4a2c12" stroke-width="2.5"/>
+    <g stroke="#4a2c12" stroke-width="1.5" opacity="0.55">
+      <line x1="465" y1="225" x2="675" y2="225"/>
+      <line x1="495" y1="205" x2="645" y2="205"/>
+      <line x1="525" y1="185" x2="615" y2="185"/>
+      <line x1="550" y1="165" x2="590" y2="165"/>
+    </g>
+    <line x1="570" y1="150" x2="570" y2="116" stroke="#6b4423" stroke-width="3"/>
+    <path d="M570,116 L602,124 L570,132 Z" fill="#fde68a" stroke="#6b4423" stroke-width="1"/>
+
+    <use href="#palm" transform="translate(420,565) scale(0.85)"/>
+    <use href="#palm" transform="translate(715,560) scale(0.75)"/>
+    <use href="#tuft" x="700" y="230"/>
+    <use href="#tuft" x="445" y="330"/>
+  </g>
+
+  <!-- service hall path (main lodge to clinic) -->
+  <g>
+    <path d="M740,332 Q752,325 762,332" fill="none" stroke="#c9955a" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
+    <circle cx="746" cy="331" r="9" fill="#c9955a" stroke="#8a5a2b" stroke-width="2"/>
+    <circle cx="760" cy="334" r="9" fill="#c9955a" stroke="#8a5a2b" stroke-width="2"/>
+    <text x="752" y="308" text-anchor="middle" fill="#cbd5e1" font-size="13" font-family="Georgia, 'Times New Roman', serif">service hall</text>
+  </g>
+
+  <!-- ================= CLINIC ================= -->
+  <g>
+    <rect x="770" y="180" width="190" height="360" rx="24" fill="url(#sandGrad)" stroke="#8a5a2b" stroke-width="4"/>
+    <text x="865" y="216" text-anchor="middle" fill="#4a2c12" font-size="27" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Clinic</text>
+    <text x="865" y="238" text-anchor="middle" fill="#6b4423" font-size="14" font-family="Georgia, 'Times New Roman', serif">small medical building</text>
+
+    <rect x="820" y="340" width="90" height="70" fill="url(#wallGradClinic)" stroke="#6b7f95" stroke-width="2.5"/>
+    <rect x="855" y="370" width="20" height="40" fill="#3f4c5c"/>
+    <path d="M805,340 L865,292 L925,340 Z" fill="url(#thatchGrad)" stroke="#4a2c12" stroke-width="2.5"/>
+    <g stroke="#4a2c12" stroke-width="1.3" opacity="0.5">
+      <line x1="812" y1="335" x2="918" y2="335"/>
+      <line x1="832" y1="317" x2="898" y2="317"/>
+    </g>
+    <line x1="865" y1="292" x2="865" y2="250" stroke="#6b4423" stroke-width="3"/>
+    <rect x="853" y="250" width="24" height="20" fill="#fff5f5" stroke="#8a5a2b" stroke-width="1"/>
+    <g fill="#dc2626">
+      <rect x="862" y="253" width="6" height="14"/>
+      <rect x="856" y="257" width="18" height="6"/>
+    </g>
+
+    <use href="#palm" transform="translate(800,500) scale(0.55)"/>
+    <use href="#palm" transform="translate(930,505) scale(0.6)"/>
+    <use href="#tuft" x="940" y="440"/>
+  </g>
+
+  <!-- ================= SIGNPOSTS ================= -->
+  <g transform="translate(110,608)">
+    <use href="#signpost"/>
+    <text x="60" y="-38" fill="#fde68a" font-size="15" font-family="Georgia, 'Times New Roman', serif">inner path &#8594; Wilds</text>
+  </g>
+  <g transform="translate(430,608)">
+    <use href="#signpost"/>
+    <text x="60" y="-38" fill="#fde68a" font-size="15" font-family="Georgia, 'Times New Roman', serif">stone walk &#8594; Wilds</text>
+  </g>
+  <g transform="translate(700,608)">
+    <use href="#signpost"/>
+    <text x="60" y="-38" fill="#fde68a" font-size="15" font-family="Georgia, 'Times New Roman', serif">open steps &#8594; Shoreline</text>
+  </g>
+
+  <rect width="1000" height="650" fill="url(#vignette)"/>
 </svg>
