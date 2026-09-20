@@ -1,16 +1,234 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
-  <rect width="960" height="620" fill="#0c4a6e"/>
-  <text x="70" y="90" fill="#bae6fd" font-size="30" font-family="Georgia">Coral Bay Resort - Shoreline</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650">
+  <defs>
+    <linearGradient id="skyWaterGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9d19a"/>
+      <stop offset="0.4" stop-color="#7dd3c0"/>
+      <stop offset="1" stop-color="#0b4a6b"/>
+    </linearGradient>
+    <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0c4a6e"/>
+    </linearGradient>
+    <linearGradient id="sandGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3d9a4"/>
+      <stop offset="1" stop-color="#d3a662"/>
+    </linearGradient>
+    <linearGradient id="deckGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c68a4e"/>
+      <stop offset="1" stop-color="#8a5a2b"/>
+    </linearGradient>
+    <linearGradient id="thatchGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9713c"/>
+      <stop offset="1" stop-color="#5f3c1c"/>
+    </linearGradient>
+    <linearGradient id="woodFrame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8b87a"/>
+      <stop offset="0.5" stop-color="#a5672f"/>
+      <stop offset="1" stop-color="#5c3417"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0.6" stop-color="#0f172a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0.65"/>
+    </radialGradient>
 
-  <rect x="80" y="170" width="250" height="190" rx="16" fill="#0369a1" stroke="#7dd3fc"/>
-  <text x="106" y="258" fill="#e0f2fe" font-size="24" font-family="Georgia">Porches Over Beach</text>
+    <g id="palm">
+      <path d="M0,0 C-6,-26 6,-46 -3,-72 C-8,-84 2,-96 -4,-108" fill="none" stroke="#7a4a23" stroke-width="6" stroke-linecap="round"/>
+      <g transform="translate(-4,-108)" fill="#1f8a4c" stroke="#166534" stroke-width="1">
+        <path d="M0,0 C-30,-18 -62,-14 -82,6 C-54,-2 -26,-2 0,0 Z"/>
+        <path d="M0,0 C-24,-32 -48,-46 -74,-48 C-46,-32 -22,-16 0,0 Z"/>
+        <path d="M0,0 C-6,-36 -18,-58 -40,-72 C-22,-50 -10,-24 0,0 Z"/>
+        <path d="M0,0 C6,-36 18,-58 40,-72 C22,-50 10,-24 0,0 Z"/>
+        <path d="M0,0 C24,-32 48,-46 74,-48 C46,-32 22,-16 0,0 Z"/>
+        <path d="M0,0 C30,-18 62,-14 82,6 C54,-2 26,-2 0,0 Z"/>
+      </g>
+    </g>
 
-  <rect x="360" y="230" width="250" height="170" rx="16" fill="#0284c7" stroke="#bae6fd"/>
-  <text x="406" y="312" fill="#e0f2fe" font-size="25" font-family="Georgia">Beach Path</text>
+    <g id="wave">
+      <path d="M-14,0 Q-7,-6 0,0 Q7,6 14,0" fill="none" stroke="#e0f2fe" stroke-width="2.5" opacity="0.55" stroke-linecap="round"/>
+    </g>
 
-  <rect x="650" y="170" width="240" height="190" rx="16" fill="#075985" stroke="#67e8f9"/>
-  <text x="714" y="258" fill="#ccfbf1" font-size="25" font-family="Georgia">Boat Dock</text>
+    <g id="porch">
+      <line x1="-22" y1="0" x2="-22" y2="-30" stroke="#5c3417" stroke-width="5"/>
+      <line x1="22" y1="0" x2="22" y2="-30" stroke="#5c3417" stroke-width="5"/>
+      <line x1="-22" y1="-14" x2="22" y2="-14" stroke="#5c3417" stroke-width="3" opacity="0.7"/>
+      <rect x="-30" y="-56" width="60" height="26" fill="url(#deckGrad)" stroke="#4a2c12" stroke-width="2"/>
+      <line x1="-26" y1="-42" x2="26" y2="-42" stroke="#4a2c12" stroke-width="2" opacity="0.6"/>
+      <path d="M-36,-56 L0,-84 L36,-56 Z" fill="url(#thatchGrad)" stroke="#4a2c12" stroke-width="2"/>
+      <path d="M-30,-60 L30,-60 M-22,-68 L22,-68" stroke="#4a2c12" stroke-width="1.3" opacity="0.5"/>
+    </g>
 
-  <path d="M330 258 L360 300" stroke="#fef08a" stroke-width="5"/>
-  <path d="M610 300 L650 258" stroke="#fef08a" stroke-width="5"/>
+    <g id="dockpost">
+      <rect x="-4" y="-16" width="8" height="30" fill="#5c3417" stroke="#3f2510" stroke-width="1"/>
+    </g>
+
+    <g id="boat">
+      <path d="M-30,0 Q0,14 30,0 L24,-8 L-24,-8 Z" fill="#8a5a2b" stroke="#4a2c12" stroke-width="2"/>
+      <line x1="0" y1="-8" x2="0" y2="-34" stroke="#4a2c12" stroke-width="2"/>
+      <path d="M0,-32 L18,-14 L0,-14 Z" fill="#f8fafc" stroke="#4a2c12" stroke-width="1"/>
+    </g>
+
+    <g id="knot">
+      <circle r="9" fill="#6b4423" stroke="#3f2510" stroke-width="2"/>
+      <path d="M-6,-6 L6,6 M-6,6 L6,-6" stroke="#3f2510" stroke-width="1.5"/>
+    </g>
+
+    <g id="signpost">
+      <line x1="0" y1="0" x2="0" y2="-34" stroke="#6b4423" stroke-width="5" stroke-linecap="round"/>
+      <rect x="-6" y="-50" width="46" height="18" rx="3" fill="#dba25c" stroke="#4a2c12" stroke-width="2"/>
+      <path d="M40,-50 L54,-41 L40,-32 Z" fill="#dba25c" stroke="#4a2c12" stroke-width="2"/>
+    </g>
+
+    <g id="tuft">
+      <path d="M-6,0 Q-4,-14 0,-2 Q4,-14 6,0 Q0,-6 -6,0 Z" fill="#3f7d32" opacity="0.7"/>
+    </g>
+
+    <g id="footprint">
+      <ellipse rx="4" ry="6" fill="#8a5a2b" opacity="0.4"/>
+    </g>
+  </defs>
+
+  <rect width="1000" height="650" fill="#0f172a"/>
+
+  <!-- decorative wood-plank frame -->
+  <rect x="14" y="14" width="972" height="622" rx="22" fill="none" stroke="url(#woodFrame)" stroke-width="6"/>
+  <rect x="26" y="26" width="948" height="598" rx="16" fill="url(#skyWaterGrad)"/>
+  <rect x="26" y="26" width="948" height="598" rx="16" fill="none" stroke="#5c3417" stroke-width="1.5" opacity="0.6"/>
+  <use href="#knot" x="30" y="30"/>
+  <use href="#knot" x="970" y="30"/>
+  <use href="#knot" x="30" y="620"/>
+  <use href="#knot" x="970" y="620"/>
+
+  <!-- distant tree line + ambient waves -->
+  <g opacity="0.5">
+    <use href="#palm" transform="translate(80,110) scale(0.4)"/>
+    <use href="#palm" transform="translate(160,100) scale(0.32)"/>
+    <use href="#palm" transform="translate(910,105) scale(0.4)"/>
+  </g>
+  <g opacity="0.3">
+    <use href="#wave" x="150" y="480"/><use href="#wave" x="220" y="520"/><use href="#wave" x="300" y="560"/>
+    <use href="#wave" x="700" y="480"/><use href="#wave" x="800" y="520"/><use href="#wave" x="850" y="450"/>
+  </g>
+
+  <text x="500" y="62" text-anchor="middle" fill="#fef3c7" font-size="34" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Coral Bay &#8212; Shoreline</text>
+  <text x="500" y="86" text-anchor="middle" fill="#0f2a3a" font-size="15" font-family="Georgia, 'Times New Roman', serif">Porches Over Beach &#183; Beach Path &#183; Boat Dock</text>
+
+  <!-- compass -->
+  <g transform="translate(925,95)">
+    <circle r="30" fill="#0b1120" stroke="url(#woodFrame)" stroke-width="3"/>
+    <path d="M0,-20 L6,4 L0,-4 L-6,4 Z" fill="#fef3c7"/>
+    <text x="0" y="-25" fill="#fef3c7" font-size="11" text-anchor="middle" font-family="Georgia, serif">N</text>
+  </g>
+
+  <!-- ================= PORCHES OVER BEACH ================= -->
+  <g>
+    <rect x="60" y="150" width="280" height="400" rx="26" fill="url(#sandGrad)" stroke="#8a5a2b" stroke-width="4"/>
+    <text x="200" y="185" text-anchor="middle" fill="#4a2c12" font-size="24" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Porches Over Beach</text>
+    <text x="200" y="207" text-anchor="middle" fill="#6b4423" font-size="13" font-family="Georgia, 'Times New Roman', serif">raised bungalow porches, a vantage on the sand</text>
+
+    <use href="#porch" x="140" y="320"/>
+    <use href="#porch" x="250" y="290"/>
+    <use href="#porch" x="190" y="450"/>
+
+    <line x1="90" y1="530" x2="310" y2="530" stroke="#5c3417" stroke-width="4"/>
+    <g stroke="#5c3417" stroke-width="3">
+      <line x1="100" y1="530" x2="100" y2="510"/><line x1="140" y1="530" x2="140" y2="510"/>
+      <line x1="180" y1="530" x2="180" y2="510"/><line x1="220" y1="530" x2="220" y2="510"/>
+      <line x1="260" y1="530" x2="260" y2="510"/><line x1="300" y1="530" x2="300" y2="510"/>
+    </g>
+
+    <use href="#palm" transform="translate(90,225) scale(0.5)"/>
+    <use href="#palm" transform="translate(315,240) scale(0.45)"/>
+    <use href="#tuft" x="95" y="500"/>
+  </g>
+
+  <!-- overlook connector -->
+  <g>
+    <path d="M340,352 Q356,346 368,352" fill="none" stroke="#c68a4e" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+    <text x="354" y="330" text-anchor="middle" fill="#0f2a3a" font-size="13" font-family="Georgia, 'Times New Roman', serif">overlook</text>
+  </g>
+
+  <!-- ================= BEACH PATH ================= -->
+  <g>
+    <rect x="370" y="190" width="260" height="400" rx="26" fill="url(#sandGrad)" stroke="#8a5a2b" stroke-width="4"/>
+    <text x="500" y="225" text-anchor="middle" fill="#4a2c12" font-size="28" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Beach Path</text>
+    <text x="500" y="247" text-anchor="middle" fill="#6b4423" font-size="14" font-family="Georgia, 'Times New Roman', serif">open sandy walking path</text>
+
+    <path d="M420,280 Q470,330 430,390 Q400,430 460,470 Q510,500 470,550" fill="none" stroke="#c9955a" stroke-width="16" stroke-linecap="round" opacity="0.5"/>
+    <use href="#footprint" x="440" y="310" transform="rotate(20 440 310)"/>
+    <use href="#footprint" x="455" y="330" transform="rotate(-10 455 330)"/>
+    <use href="#footprint" x="435" y="400" transform="rotate(30 435 400)"/>
+    <use href="#footprint" x="455" y="420" transform="rotate(-5 455 420)"/>
+    <use href="#footprint" x="470" y="480" transform="rotate(15 470 480)"/>
+    <use href="#footprint" x="485" y="500" transform="rotate(-15 485 500)"/>
+
+    <!-- driftwood -->
+    <path d="M560,300 Q580,290 600,300 Q590,308 560,300 Z" fill="#8a6a4a" stroke="#4a2c12" stroke-width="1.5"/>
+
+    <!-- beach umbrella -->
+    <g transform="translate(560,420)">
+      <line x1="0" y1="0" x2="0" y2="-46" stroke="#6b4423" stroke-width="4"/>
+      <path d="M-34,-46 Q0,-76 34,-46 Q0,-58 -34,-46 Z" fill="#dc2626" stroke="#4a2c12" stroke-width="1.5"/>
+      <path d="M-34,-46 Q0,-76 34,-46" fill="none" stroke="#fef3c7" stroke-width="3" opacity="0.5"/>
+    </g>
+
+    <use href="#tuft" x="400" y="560"/>
+    <use href="#tuft" x="600" y="220"/>
+  </g>
+
+  <!-- shoreline path connector -->
+  <g>
+    <path d="M632,470 Q648,464 658,470" fill="none" stroke="#c9955a" stroke-width="10" stroke-linecap="round" opacity="0.8"/>
+    <text x="645" y="448" text-anchor="middle" fill="#0f2a3a" font-size="13" font-family="Georgia, 'Times New Roman', serif">shoreline path</text>
+  </g>
+
+  <!-- ================= BOAT DOCK ================= -->
+  <g>
+    <rect x="660" y="150" width="300" height="440" rx="26" fill="url(#waterGrad)" stroke="#0c4a6e" stroke-width="4"/>
+    <path d="M660,176 Q690,150 730,150 L730,300 Q690,330 660,320 Z" fill="url(#sandGrad)" opacity="0.9"/>
+    <text x="810" y="185" text-anchor="middle" fill="#f0f9ff" font-size="28" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Boat Dock</text>
+    <text x="810" y="207" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Georgia, 'Times New Roman', serif">a wooden pier reaching into the water</text>
+
+    <g opacity="0.55">
+      <use href="#wave" x="700" y="450"/><use href="#wave" x="770" y="500"/><use href="#wave" x="840" y="440"/>
+      <use href="#wave" x="900" y="500"/><use href="#wave" x="720" y="560"/><use href="#wave" x="880" y="560"/>
+    </g>
+
+    <!-- dock structure -->
+    <g>
+      <path d="M700,300 L930,250 L930,272 L700,322 Z" fill="url(#deckGrad)" stroke="#4a2c12" stroke-width="2.5"/>
+      <g stroke="#4a2c12" stroke-width="1.5" opacity="0.6">
+        <line x1="730" y1="315" x2="726" y2="257"/>
+        <line x1="770" y1="308" x2="766" y2="250"/>
+        <line x1="810" y1="300" x2="806" y2="242"/>
+        <line x1="850" y1="292" x2="846" y2="234"/>
+        <line x1="890" y1="284" x2="886" y2="226"/>
+      </g>
+      <use href="#dockpost" transform="translate(715,320)"/>
+      <use href="#dockpost" transform="translate(800,300)"/>
+      <use href="#dockpost" transform="translate(885,282)"/>
+      <use href="#dockpost" transform="translate(925,268)"/>
+    </g>
+
+    <use href="#boat" transform="translate(900,235) rotate(-8)"/>
+
+    <!-- lamp post -->
+    <g transform="translate(735,255)">
+      <line x1="0" y1="0" x2="0" y2="-40" stroke="#3f2510" stroke-width="3"/>
+      <circle cx="0" cy="-44" r="8" fill="#fde68a" opacity="0.85"/>
+    </g>
+
+    <use href="#palm" transform="translate(685,340) scale(0.5)"/>
+  </g>
+
+  <!-- ================= SIGNPOSTS ================= -->
+  <g transform="translate(420,608)">
+    <use href="#signpost"/>
+    <text x="60" y="-38" fill="#4a2c12" font-size="15" font-family="Georgia, 'Times New Roman', serif">open steps &#8594; Resort Core</text>
+  </g>
+  <g transform="translate(680,608)">
+    <use href="#signpost"/>
+    <text x="60" y="-38" fill="#4a2c12" font-size="15" font-family="Georgia, 'Times New Roman', serif">sand-to-brush &#8594; Wilds</text>
+  </g>
+
+  <rect width="1000" height="650" fill="url(#vignette)"/>
 </svg>

@@ -138,7 +138,7 @@
     </g>
 
     <!-- cross-deck hint -->
-    <text x="770" y="362" text-anchor="middle" fill="#fbbf24" font-size="15" font-family="'Courier New', ui-monospace, monospace">&#8681; service route to Engineering</text>
+    <text x="895" y="362" text-anchor="end" fill="#fbbf24" font-size="14" font-family="'Courier New', ui-monospace, monospace">&#8681; service route to Engineering</text>
   </g>
 
   <!-- corridor: central hub <-> surveillance bay -->

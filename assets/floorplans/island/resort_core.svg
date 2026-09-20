@@ -98,8 +98,6 @@
   <!-- ================= BUNGALOW ROW ================= -->
   <g>
     <rect x="60" y="140" width="300" height="440" rx="28" fill="url(#sandGrad)" stroke="#8a5a2b" stroke-width="4"/>
-    <text x="210" y="176" text-anchor="middle" fill="#4a2c12" font-size="28" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Bungalow Row</text>
-    <text x="210" y="198" text-anchor="middle" fill="#6b4423" font-size="14" font-family="Georgia, 'Times New Roman', serif">row of thatched guest bungalows</text>
 
     <path d="M100,220 Q210,250 130,320 Q80,360 190,400 Q260,430 150,480 Q100,510 200,545" fill="none" stroke="#c9955a" stroke-width="14" stroke-linecap="round" opacity="0.55"/>
 
@@ -117,6 +115,11 @@
     <use href="#tuft" x="105" y="558"/>
     <use href="#tuft" x="320" y="230"/>
     <use href="#tuft" x="230" y="480"/>
+
+    <!-- title card drawn last so hut roofs can never paint over the labels -->
+    <rect x="90" y="150" width="240" height="46" rx="8" fill="#0f172a" opacity="0.4"/>
+    <text x="210" y="176" text-anchor="middle" fill="#fef3c7" font-size="28" font-family="Georgia, 'Times New Roman', serif" font-weight="bold">Bungalow Row</text>
+    <text x="210" y="198" text-anchor="middle" fill="#fde68a" font-size="14" font-family="Georgia, 'Times New Roman', serif">row of thatched guest bungalows</text>
   </g>
 
   <!-- ================= MAIN LODGE ================= -->
