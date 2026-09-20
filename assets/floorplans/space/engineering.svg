@@ -1,14 +1,170 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
-  <rect width="960" height="620" fill="#1f2937"/>
-  <text x="70" y="90" fill="#f8fafc" font-size="30" font-family="Georgia">Station Prometheus - Engineering</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 620">
+  <defs>
+    <radialGradient id="eBgGlow" cx="0.5" cy="0.45" r="0.85">
+      <stop offset="0" stop-color="#2a1206" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="eStars" width="140" height="140" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="24" r="1.4" fill="#bae6fd" opacity="0.55"/>
+      <circle cx="72" cy="60" r="1" fill="#e0f2fe" opacity="0.4"/>
+      <circle cx="112" cy="20" r="1.6" fill="#7dd3fc" opacity="0.5"/>
+      <circle cx="46" cy="100" r="1" fill="#bae6fd" opacity="0.35"/>
+      <circle cx="128" cy="112" r="1.5" fill="#e0f2fe" opacity="0.5"/>
+    </pattern>
+    <pattern id="eGrid" width="42" height="42" patternUnits="userSpaceOnUse">
+      <path d="M42 0 L0 0 0 42" fill="none" stroke="#1e3a5f" stroke-width="1" opacity="0.3"/>
+    </pattern>
+    <linearGradient id="eMetal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="0.5" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0c4a6e"/>
+    </linearGradient>
+    <linearGradient id="eHazardEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fde68a"/>
+      <stop offset="0.5" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#7c2d12"/>
+    </linearGradient>
+    <pattern id="eHazardStripe" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="26" height="26" fill="#1a0c04"/>
+      <rect width="13" height="26" fill="#f59e0b"/>
+    </pattern>
+    <linearGradient id="eTunnelFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a1608"/>
+      <stop offset="1" stop-color="#160702"/>
+    </linearGradient>
+    <linearGradient id="eRoomFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123350"/>
+      <stop offset="1" stop-color="#08192b"/>
+    </linearGradient>
+    <radialGradient id="eCore" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff7ed"/>
+      <stop offset="0.35" stop-color="#fde68a"/>
+      <stop offset="0.65" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#7c2d12" stop-opacity="0.2"/>
+    </radialGradient>
+    <radialGradient id="eHatchStars" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#0b1c33"/>
+      <stop offset="1" stop-color="#020617"/>
+    </radialGradient>
+    <radialGradient id="eVignette" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.6" stop-color="#020617" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000208" stop-opacity="0.6"/>
+    </radialGradient>
+    <g id="eRivet">
+      <circle r="4.2" fill="url(#eMetal)"/>
+      <circle r="1.4" fill="#0c4a6e"/>
+    </g>
+    <g id="eHazardBolt">
+      <circle r="4.2" fill="url(#eHazardEdge)"/>
+      <circle r="1.4" fill="#3f1a05"/>
+    </g>
+    <g id="eHatch">
+      <rect x="-18" y="-24" width="36" height="48" fill="#0b1c2e" stroke="url(#eMetal)" stroke-width="2.5"/>
+      <line x1="-18" y1="0" x2="18" y2="0" stroke="url(#eMetal)" stroke-width="2"/>
+      <use href="#eRivet" x="-13" y="-18"/><use href="#eRivet" x="13" y="-18"/>
+      <use href="#eRivet" x="-13" y="18"/><use href="#eRivet" x="13" y="18"/>
+    </g>
+    <g id="eStarDot">
+      <circle r="1.3" fill="#e0f2fe" opacity="0.8"/>
+    </g>
+  </defs>
 
-  <rect x="150" y="170" width="300" height="230" rx="16" fill="#7f1d1d" stroke="#fda4af"/>
-  <text x="188" y="290" fill="#fee2e2" font-size="28" font-family="Georgia">Reactor Tunnel</text>
-  <text x="188" y="324" fill="#fecaca" font-size="16" font-family="Georgia">Extreme heat + high disturbance risk</text>
+  <rect width="1080" height="620" fill="#020617"/>
+  <rect width="1080" height="620" fill="url(#eStars)"/>
+  <rect width="1080" height="620" fill="url(#eGrid)"/>
+  <rect width="1080" height="620" fill="url(#eBgGlow)"/>
 
-  <rect x="530" y="220" width="270" height="170" rx="16" fill="#1e40af" stroke="#93c5fd"/>
-  <text x="612" y="304" fill="#dbeafe" font-size="28" font-family="Georgia">Airlock</text>
-  <text x="612" y="336" fill="#bfdbfe" font-size="16" font-family="Georgia">Gray note: hull access corridor</text>
+  <rect x="14" y="14" width="1052" height="592" rx="18" fill="none" stroke="url(#eMetal)" stroke-width="5"/>
+  <rect x="25" y="25" width="1030" height="570" rx="12" fill="none" stroke="#0e7490" stroke-width="1.5" opacity="0.55"/>
+  <use href="#eRivet" x="36" y="36"/>
+  <use href="#eRivet" x="1044" y="36"/>
+  <use href="#eRivet" x="36" y="584"/>
+  <use href="#eRivet" x="1044" y="584"/>
 
-  <path d="M450 284 L530 304" stroke="#fef08a" stroke-width="5"/>
+  <text x="50" y="60" fill="#7dd3fc" font-size="32" font-family="'Courier New', ui-monospace, monospace" font-weight="bold" letter-spacing="1">PROMETHEUS STATION</text>
+  <text x="52" y="86" fill="#94a3b8" font-size="17" font-family="'Courier New', ui-monospace, monospace" letter-spacing="3">ENGINEERING &#8226; SCHEMATIC 07-A</text>
+
+  <g transform="translate(1000,68)">
+    <circle r="34" fill="#08131f" stroke="url(#eMetal)" stroke-width="2.5"/>
+    <circle r="23" fill="none" stroke="#0e7490" stroke-width="1" opacity="0.7"/>
+    <path d="M0,-27 L6,-5 L0,-12 L-6,-5 Z" fill="#7dd3fc"/>
+    <text x="0" y="-35" text-anchor="middle" fill="#7dd3fc" font-size="12" font-family="'Courier New', monospace">FWD</text>
+    <text x="0" y="45" text-anchor="middle" fill="#64748b" font-size="11" font-family="'Courier New', monospace">AFT</text>
+  </g>
+
+  <!-- ================= REACTOR TUNNEL ================= -->
+  <g>
+    <rect x="90" y="150" width="420" height="320" rx="70" fill="url(#eTunnelFill)" stroke="url(#eHazardEdge)" stroke-width="5"/>
+    <!-- hazard stripe collars at both mouths -->
+    <rect x="90" y="150" width="420" height="26" fill="url(#eHazardStripe)" opacity="0.85"/>
+    <rect x="90" y="444" width="420" height="26" fill="url(#eHazardStripe)" opacity="0.85"/>
+    <use href="#eHazardBolt" x="130" y="163"/><use href="#eHazardBolt" x="300" y="163"/><use href="#eHazardBolt" x="470" y="163"/>
+    <use href="#eHazardBolt" x="130" y="457"/><use href="#eHazardBolt" x="300" y="457"/><use href="#eHazardBolt" x="470" y="457"/>
+
+    <text x="300" y="215" text-anchor="middle" fill="#fee2e2" font-size="27" font-family="'Courier New', ui-monospace, monospace" font-weight="bold">Reactor Tunnel</text>
+    <text x="300" y="238" text-anchor="middle" fill="#fecaca" font-size="14" font-family="'Courier New', ui-monospace, monospace" opacity="0.9">extreme heat &#8226; highest exposure risk</text>
+
+    <!-- glowing reactor core -->
+    <g transform="translate(300,340)">
+      <circle r="82" fill="none" stroke="#f59e0b" stroke-width="1.4" opacity="0.5"/>
+      <circle r="60" fill="none" stroke="#fde68a" stroke-width="1.4" opacity="0.6"/>
+      <circle r="42" fill="url(#eCore)"/>
+      <circle r="42" fill="none" stroke="#7c2d12" stroke-width="2.5"/>
+      <g stroke="#fde68a" stroke-width="2" opacity="0.7">
+        <line x1="-70" y1="0" x2="-46" y2="0"/><line x1="70" y1="0" x2="46" y2="0"/>
+        <line x1="0" y1="-70" x2="0" y2="-46"/><line x1="0" y1="70" x2="0" y2="46"/>
+        <line x1="-50" y1="-50" x2="-33" y2="-33"/><line x1="50" y1="50" x2="33" y2="33"/>
+        <line x1="50" y1="-50" x2="33" y2="-33"/><line x1="-50" y1="50" x2="-33" y2="33"/>
+      </g>
+    </g>
+
+    <!-- cross-deck hints -->
+    <text x="300" y="130" text-anchor="middle" fill="#fbbf24" font-size="15" font-family="'Courier New', ui-monospace, monospace">&#8593; maintenance trunk to Cargo Hold</text>
+    <text x="300" y="498" text-anchor="middle" fill="#fbbf24" font-size="15" font-family="'Courier New', ui-monospace, monospace">&#8593; service route to Ops Deck</text>
+  </g>
+
+  <!-- ================= ENGINEERING CORRIDOR ================= -->
+  <g stroke="url(#eMetal)" stroke-width="12" opacity="0.85">
+    <line x1="512" y1="310" x2="628" y2="310"/>
+  </g>
+  <g stroke="#0e7490" stroke-width="2" opacity="0.5" stroke-dasharray="6 6">
+    <line x1="512" y1="310" x2="628" y2="310"/>
+  </g>
+  <use href="#eHatch" x="570" y="310"/>
+  <text x="570" y="278" text-anchor="middle" fill="#64748b" font-size="12" font-family="'Courier New', ui-monospace, monospace">corridor</text>
+
+  <!-- ================= AIRLOCK ================= -->
+  <g>
+    <circle cx="800" cy="330" r="172" fill="url(#eRoomFill)" stroke="url(#eMetal)" stroke-width="4"/>
+
+    <text x="800" y="200" text-anchor="middle" fill="#e0f2fe" font-size="27" font-family="'Courier New', ui-monospace, monospace" font-weight="bold">Airlock</text>
+    <text x="800" y="222" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="'Courier New', ui-monospace, monospace" opacity="0.85">hull access airlock</text>
+
+    <!-- circular hatch mechanism -->
+    <g transform="translate(750,360)">
+      <circle r="66" fill="#08131f" stroke="url(#eMetal)" stroke-width="4"/>
+      <circle r="48" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+      <circle r="30" fill="none" stroke="#0e7490" stroke-width="2"/>
+      <use href="#eRivet" x="0" y="-58"/><use href="#eRivet" x="0" y="58"/>
+      <use href="#eRivet" x="-58" y="0"/><use href="#eRivet" x="58" y="0"/>
+      <use href="#eRivet" x="-41" y="-41"/><use href="#eRivet" x="41" y="-41"/>
+      <use href="#eRivet" x="-41" y="41"/><use href="#eRivet" x="41" y="41"/>
+      <path d="M0,-30 L26,15 L-26,15 Z" fill="#0e7490" opacity="0.5"/>
+    </g>
+
+    <!-- porthole showing starfield beyond the hull -->
+    <g transform="translate(878,395)">
+      <circle r="46" fill="url(#eHatchStars)" stroke="url(#eMetal)" stroke-width="4"/>
+      <use href="#eStarDot" x="-18" y="-14"/><use href="#eStarDot" x="10" y="-22"/>
+      <use href="#eStarDot" x="20" y="6"/><use href="#eStarDot" x="-8" y="18"/>
+      <use href="#eStarDot" x="2" y="2"/><use href="#eStarDot" x="-22" y="10"/>
+      <circle r="46" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.6"/>
+    </g>
+    <text x="878" y="452" text-anchor="middle" fill="#64748b" font-size="12" font-family="'Courier New', ui-monospace, monospace">viewport</text>
+
+    <!-- cross-deck hint -->
+    <text x="800" y="480" text-anchor="middle" fill="#fbbf24" font-size="15" font-family="'Courier New', ui-monospace, monospace">&#8593; lock corridor to Habitat Deck</text>
+  </g>
+
+  <rect width="1080" height="620" fill="url(#eVignette)"/>
 </svg>

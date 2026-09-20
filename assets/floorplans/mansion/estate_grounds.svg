@@ -1,15 +1,179 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620">
-  <rect width="960" height="620" fill="#052e16"/>
-  <rect x="50" y="50" width="860" height="520" rx="26" fill="#14532d" stroke="#86efac" stroke-width="3"/>
-  <text x="70" y="95" fill="#dcfce7" font-size="30" font-family="Georgia">Blackwood Estate - Grounds</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780">
+  <defs>
+    <linearGradient id="gilt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f9e6b0"/>
+      <stop offset="0.5" stop-color="#b8860b"/>
+      <stop offset="1" stop-color="#5c3d0a"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0.6" stop-color="#0f172a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0.7"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fde68a" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fde68a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="nightsky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <pattern id="planks" width="60" height="16" patternUnits="userSpaceOnUse">
+      <rect width="60" height="16" fill="#6b4423"/>
+      <line x1="0" y1="16" x2="60" y2="16" stroke="#4a2f18" stroke-width="1"/>
+      <line x1="18" y1="0" x2="18" y2="16" stroke="#4a2f18" stroke-width="0.6" opacity="0.6"/>
+      <line x1="40" y1="0" x2="40" y2="16" stroke="#4a2f18" stroke-width="0.6" opacity="0.6"/>
+    </pattern>
+    <pattern id="lawn" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#1f5c33"/>
+      <path d="M0,10 Q10,6 20,10 T40,10" stroke="#1a4d2b" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M0,26 Q10,22 20,26 T40,26" stroke="#276b3c" stroke-width="1.5" fill="none" opacity="0.6"/>
+    </pattern>
+    <pattern id="flagstone" width="54" height="30" patternUnits="userSpaceOnUse">
+      <rect width="54" height="30" fill="#8a8478"/>
+      <rect x="1" y="1" width="24" height="13" fill="#9b9686" stroke="#6b6656" stroke-width="1"/>
+      <rect x="28" y="1" width="25" height="13" fill="#948e7e" stroke="#6b6656" stroke-width="1"/>
+      <rect x="1" y="16" width="12" height="13" fill="#948e7e" stroke="#6b6656" stroke-width="1"/>
+      <rect x="15" y="16" width="24" height="13" fill="#9b9686" stroke="#6b6656" stroke-width="1"/>
+      <rect x="42" y="16" width="11" height="13" fill="#8f8a7a" stroke="#6b6656" stroke-width="1"/>
+    </pattern>
+    <g id="wickerchair">
+      <ellipse rx="18" ry="20" fill="none" stroke="#c9a66b" stroke-width="3"/>
+      <ellipse rx="18" ry="20" fill="#8a5a2b" opacity="0.35"/>
+      <path d="M-14,-14 L14,-14 M-16,-4 L16,-4 M-17,6 L17,6" stroke="#c9a66b" stroke-width="1.4" opacity="0.7"/>
+    </g>
+    <g id="planter">
+      <path d="M-16,-8 L16,-8 L12,14 L-12,14 Z" fill="#5c3d0a" stroke="#2a1608" stroke-width="1.5"/>
+      <path d="M-13,-8 Q-13,-26 -3,-30 Q3,-34 8,-26 Q14,-24 10,-10 Q4,-22 -3,-20 Q-10,-18 -13,-8 Z" fill="#1f8a4c" stroke="#166534" stroke-width="1"/>
+    </g>
+    <g id="lantern">
+      <circle r="16" fill="url(#glow)"/>
+      <rect x="-4" y="-6" width="8" height="10" fill="#3b2412" stroke="#1a0d04" stroke-width="1"/>
+      <circle r="4" fill="#fde68a"/>
+    </g>
+    <g id="hedge">
+      <path d="M-30,10 Q-30,-14 -14,-16 Q-6,-26 6,-16 Q22,-18 30,-4 Q34,10 20,12 Z" fill="#3f8a52" stroke="#0f3320" stroke-width="2.5"/>
+      <path d="M-22,4 Q-14,-10 0,-10 Q12,-12 20,-2" fill="none" stroke="#7fc98f" stroke-width="2" opacity="0.6"/>
+    </g>
+    <g id="fountain">
+      <circle r="46" fill="#334155" stroke="#94a3b8" stroke-width="3"/>
+      <circle r="34" fill="#0c4a6e" opacity="0.7"/>
+      <circle r="34" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.5"/>
+      <circle r="14" fill="#475569" stroke="#94a3b8" stroke-width="2"/>
+      <path d="M0,-14 L0,-30 M-8,-24 L0,-30 L8,-24" stroke="#bae6fd" stroke-width="2" fill="none" opacity="0.8"/>
+    </g>
+    <g id="stairsdown">
+      <rect x="-26" y="8" width="52" height="6" fill="#94a3b8"/>
+      <rect x="-19" y="0" width="38" height="6" fill="#94a3b8"/>
+      <rect x="-12" y="-8" width="24" height="6" fill="#94a3b8"/>
+      <rect x="-5" y="-16" width="10" height="6" fill="#94a3b8"/>
+      <path d="M0,14 L0,30 M0,30 L-6,22 M0,30 L6,22" stroke="#e2e8f0" stroke-width="2.5" fill="none"/>
+    </g>
+  </defs>
 
-  <rect x="120" y="170" width="300" height="150" rx="14" fill="#365314" stroke="#bef264"/>
-  <text x="150" y="245" fill="#ecfccb" font-size="28" font-family="Georgia">Veranda Porch</text>
-  <text x="150" y="275" fill="#d9f99d" font-size="17" font-family="Georgia">Gray note: balcony view of moors</text>
+  <rect width="1200" height="780" fill="url(#nightsky)"/>
+  <g fill="#f3e3b3" opacity="0.55">
+    <circle cx="120" cy="70" r="1.4"/><circle cx="260" cy="50" r="1.1"/><circle cx="400" cy="90" r="1.3"/>
+    <circle cx="560" cy="55" r="1"/><circle cx="720" cy="80" r="1.4"/><circle cx="880" cy="50" r="1.1"/>
+    <circle cx="1020" cy="75" r="1.3"/><circle cx="1140" cy="55" r="1"/>
+  </g>
 
-  <rect x="520" y="220" width="290" height="170" rx="14" fill="#166534" stroke="#bbf7d0"/>
-  <text x="560" y="300" fill="#dcfce7" font-size="28" font-family="Georgia">Garden Path</text>
-  <text x="560" y="332" fill="#bbf7d0" font-size="17" font-family="Georgia">Route to foyer and porch steps</text>
+  <!-- decorative gilt frame -->
+  <rect x="20" y="20" width="1160" height="740" rx="24" fill="none" stroke="url(#gilt)" stroke-width="6"/>
+  <rect x="34" y="34" width="1132" height="712" rx="16" fill="none" stroke="#5c3d0a" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="34" cy="34" r="5" fill="url(#gilt)"/><circle cx="1166" cy="34" r="5" fill="url(#gilt)"/>
+  <circle cx="34" cy="746" r="5" fill="url(#gilt)"/><circle cx="1166" cy="746" r="5" fill="url(#gilt)"/>
 
-  <path d="M422 255 L520 285" stroke="#fef08a" stroke-width="5"/>
+  <text x="600" y="70" text-anchor="middle" fill="#f3e3b3" font-size="34" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Blackwood Estate &#8212; Estate Grounds</text>
+  <text x="600" y="96" text-anchor="middle" fill="#c9a66b" font-size="16" font-family="Georgia, 'Times New Roman', serif">Night Air &#183; Porch &amp; Garden</text>
+
+  <!-- ============= VERANDA PORCH ============= -->
+  <g>
+    <rect x="90" y="170" width="430" height="440" fill="url(#planks)"/>
+    <rect x="90" y="170" width="430" height="440" fill="#334155" opacity="0.1"/>
+    <line x1="90" y1="170" x2="520" y2="170" stroke="#241205" stroke-width="10"/>
+    <line x1="90" y1="170" x2="90" y2="610" stroke="#241205" stroke-width="10"/>
+    <line x1="90" y1="610" x2="330" y2="610" stroke="#241205" stroke-width="10"/>
+    <line x1="450" y1="610" x2="520" y2="610" stroke="#241205" stroke-width="10"/>
+    <line x1="520" y1="170" x2="520" y2="330" stroke="#241205" stroke-width="10"/>
+    <line x1="520" y1="450" x2="520" y2="610" stroke="#241205" stroke-width="10"/>
+    <line x1="90" y1="170" x2="520" y2="170" stroke="#caa257" stroke-width="2" opacity="0.5"/>
+
+    <!-- balustrade rail along the outer (garden-facing) edge -->
+    <line x1="110" y1="180" x2="110" y2="600" stroke="#c9a66b" stroke-width="4"/>
+    <g stroke="#c9a66b" stroke-width="3">
+      <line x1="110" y1="200" x2="110" y2="200"/>
+    </g>
+    <g stroke="#8a5a2b" stroke-width="3">
+      <line x1="110" y1="200" x2="132" y2="200"/><line x1="110" y1="240" x2="132" y2="240"/>
+      <line x1="110" y1="280" x2="132" y2="280"/><line x1="110" y1="320" x2="132" y2="320"/>
+      <line x1="110" y1="460" x2="132" y2="460"/><line x1="110" y1="500" x2="132" y2="500"/>
+      <line x1="110" y1="540" x2="132" y2="540"/><line x1="110" y1="580" x2="132" y2="580"/>
+    </g>
+
+    <!-- balcony stairwell above (bedroom wing balcony doors) -->
+    <rect x="330" y="330" width="120" height="120" fill="#0f172a" opacity="0.35" stroke="#caa257" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <use href="#stairsdown" x="390" y="405" transform="scale(1.1)"/>
+    <text x="390" y="330" text-anchor="middle" fill="#f3d38a" font-size="13" font-family="Georgia, serif" font-style="italic">&#8595; balcony doors from Bedroom Wing</text>
+
+    <use href="#wickerchair" x="180" y="240"/>
+    <use href="#wickerchair" x="180" y="540"/>
+    <use href="#planter" x="150" y="600"/>
+    <use href="#planter" x="480" y="600"/>
+    <use href="#lantern" x="480" y="220"/>
+    <use href="#lantern" x="480" y="560"/>
+
+    <rect x="103" y="182" width="180" height="56" rx="8" fill="#0f172a" opacity="0.6"/>
+    <text x="118" y="206" fill="#f1e6c8" font-size="28" font-family="Georgia, 'Times New Roman', serif">Veranda Porch</text>
+    <text x="118" y="228" fill="#c9a66b" font-size="13" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Vantage over the garden</text>
+  </g>
+
+  <!-- ============= STEPS (porch <-> garden path) ============= -->
+  <g>
+    <rect x="520" y="330" width="90" height="120" fill="#8a8478" opacity="0.3"/>
+    <g fill="#948e7e" stroke="#6b6656" stroke-width="1.2">
+      <rect x="524" y="336" width="82" height="18"/>
+      <rect x="530" y="358" width="70" height="18"/>
+      <rect x="536" y="380" width="58" height="18"/>
+      <rect x="542" y="402" width="46" height="18"/>
+      <rect x="548" y="424" width="34" height="18"/>
+    </g>
+    <text x="565" y="316" text-anchor="middle" fill="#c9a66b" font-size="13" font-family="Georgia, 'Times New Roman', serif" font-style="italic">steps</text>
+  </g>
+
+  <!-- ============= GARDEN PATH ============= -->
+  <g>
+    <path d="M610,610 L610,170 L1080,170 L1080,610 Z" fill="url(#lawn)"/>
+    <line x1="610" y1="170" x2="1080" y2="170" stroke="#241205" stroke-width="10"/>
+    <line x1="1080" y1="170" x2="1080" y2="610" stroke="#241205" stroke-width="10"/>
+    <line x1="1080" y1="610" x2="900" y2="610" stroke="#241205" stroke-width="10"/>
+    <line x1="780" y1="610" x2="610" y2="610" stroke="#241205" stroke-width="10"/>
+
+    <!-- winding flagstone path from steps to front doors -->
+    <path d="M610,420 Q700,450 760,540 Q800,600 840,610" fill="none" stroke="#948e7e" stroke-width="46" stroke-linecap="round" opacity="0.9"/>
+    <path d="M610,420 Q700,450 760,540 Q800,600 840,610" fill="none" stroke="url(#flagstone)" stroke-width="40" stroke-linecap="round"/>
+
+    <use href="#hedge" x="660" y="230"/>
+    <use href="#hedge" x="1010" y="230"/>
+    <use href="#hedge" x="660" y="560" transform="scale(0.85)"/>
+    <use href="#fountain" x="920" y="330" transform="scale(0.85)"/>
+    <use href="#lantern" x="1020" y="500"/>
+
+    <!-- front doors hint (cross-floor to Foyer) -->
+    <g transform="translate(840,610)">
+      <text x="14" y="-14" fill="#f3d38a" font-size="14" font-family="Georgia, serif" font-style="italic">front doors &#8592; Foyer</text>
+    </g>
+
+    <rect x="623" y="182" width="220" height="56" rx="8" fill="#0f172a" opacity="0.55"/>
+    <text x="638" y="206" fill="#f1e6c8" font-size="28" font-family="Georgia, 'Times New Roman', serif">Garden Path</text>
+    <text x="638" y="228" fill="#c9a66b" font-size="13" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Outdoor route to the estate</text>
+  </g>
+
+  <!-- compass rose -->
+  <g transform="translate(1100,690)">
+    <circle r="30" fill="#111827" stroke="url(#gilt)" stroke-width="3"/>
+    <path d="M0,-21 L6,4 L0,-5 L-6,4 Z" fill="#f3d38a"/>
+    <text x="0" y="-27" text-anchor="middle" fill="#f3d38a" font-size="12" font-family="Georgia, serif">N</text>
+  </g>
+
+  <rect width="1200" height="780" fill="url(#vignette)"/>
 </svg>

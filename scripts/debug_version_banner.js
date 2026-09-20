@@ -31,7 +31,10 @@
     const style = document.createElement('style');
     style.id = 'debug-version-banner-style';
     style.textContent = [
-      '#debug-version-banner{position:fixed;top:0;left:0;right:0;z-index:99999;',
+      // z-index 1000: above regular content/modals but below full-screen app
+      // overlays (tutorial z-index:1100, big room-code view z-index:1200) so
+      // this debug bar never sits on top of a flow meant to own the screen.
+      '#debug-version-banner{position:fixed;top:0;left:0;right:0;z-index:1000;',
       'display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;',
       'background:repeating-linear-gradient(135deg,#7c2d12,#7c2d12 10px,#9a3412 10px,#9a3412 20px);',
       'color:#fff7ed;font:600 12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;',
